@@ -1,0 +1,14 @@
+# Credenciales: nunca subir el .env real.
+.env
+
+# Datos generados por la acción (portafolio simulado).
+datos/portafolio.json
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.ipynb_checkpoints/
+
+.langgraph_api/
+datos/historial_web.sqlite3*

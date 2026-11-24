@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Asistente cripto</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0c0d10; --panel: #141519; --line: #272a33;
+    --text: #eef0f6; --muted: #a5abbc; --accent: #a7c3ff;
+    --user: #1b2740; --input: #17181d;
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #f7f7f8; --panel: #eef0f4; --line: #d5dae4;
+    --text: #182032; --muted: #515d72; --accent: #244b9a;
+    --user: #e4ecff; --input: #fff;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.55 system-ui, sans-serif; }
+  button, input, textarea { font: inherit; }
+  button { cursor: pointer; color: var(--text); background: var(--input); border: 1px solid var(--line); border-radius: 10px; padding: .6rem .85rem; }
+  button:hover { border-color: var(--accent); }
+  button:disabled { cursor: wait; opacity: .55; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); height: 100dvh; }
+  .layout.sidebar-collapsed { grid-template-columns: minmax(0, 1fr); }
+  .layout.sidebar-collapsed aside { display: none; }
+  aside { padding: 22px 15px; background: var(--panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 15px; min-height: 0; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; }
+  .badge { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 11px; background: var(--user); color: var(--accent); font-weight: 750; }
+  .muted { color: var(--muted); }
+  #history { display: grid; align-content: start; gap: 6px; overflow: auto; flex: 1; }
+  #history button { text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: transparent; border-color: transparent; }
+  #history [aria-current="true"] { background: var(--user); }
+  .history-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px; min-width: 0; }
+  .history-options summary { list-style: none; cursor: pointer; padding: .6rem; border-radius: 10px; }
+  .history-options summary::-webkit-details-marker { display: none; }
+  .history-options summary:hover, .history-options[open] summary { background: var(--user); }
+  #history .history-delete { grid-column: 1 / -1; color: var(--text); border-color: var(--line); }
+  main { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-width: 0; min-height: 0; }
+  header { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 14px 22px; border-bottom: 1px solid var(--line); }
+  header div { display: flex; align-items: center; gap: 8px; }
+  #theme { display: inline-grid; grid-template-columns: 26px 26px; place-items: center; padding: 3px; border-radius: 999px; }
+  #theme span { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; color: var(--muted); }
+  #theme[aria-checked="false"] .moon,
+  #theme[aria-checked="true"] .sun { background: var(--accent); color: var(--bg); }
+  .scroll { min-height: 0; overflow: auto; overscroll-behavior: contain; }
+  .width { width: min(100% - 32px, 760px); margin-inline: auto; }
+  #welcome { padding: clamp(35px, 12vh, 125px) 0 24px; text-align: center; }
+  .welcome-logo { width: 110px; height: 110px; display: grid; place-items: center; margin: 0 auto 20px; border-radius: 30px; background: #f8c577; color: #221504; font-size: 66px; font-weight: 750; }
+  h1 { font-size: clamp(28px, 5vw, 44px); line-height: 1.14; letter-spacing: -.045em; margin: 0 0 12px; }
+  .examples { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 25px; }
+  .messages { padding-block: 22px; display: grid; gap: 22px; }
+  .message { min-width: 0; }
+  .message strong { display: block; margin-bottom: 6px; font-size: .8rem; color: var(--muted); }
+  .message div { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .message-meta { display: flex; align-items: center; gap: 10px; margin-top: 8px; color: var(--muted); font-size: .75rem; }
+  .message-meta button { padding: 2px 7px; }
+  .user { justify-self: end; background: var(--user); border: 1px solid var(--line); border-radius: 16px; padding: 12px 16px; max-width: 90%; }
+  footer { background: var(--bg); padding: 0 0 14px; }
+  form.composer { display: flex; gap: 10px; align-items: end; border: 1px solid var(--line); background: var(--input); border-radius: 16px; padding: 10px; }
+  textarea, input { color: var(--text); }
+  textarea { resize: vertical; flex: 1; min-width: 0; min-height: 46px; max-height: 24vh; background: transparent; border: 0; padding: 8px; }
+  .primary { background: var(--accent); color: var(--bg); border-color: transparent; font-weight: 650; }
+  #status { min-height: 1.55em; margin: 6px 0; color: var(--muted); }
+  @media (max-width: 640px) {
+    .layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+    .layout.sidebar-collapsed { grid-template-rows: minmax(0, 1fr); }
+    aside { padding: 8px 12px; border-right: 0; border-bottom: 1px solid var(--line); gap: 6px; }
+    aside > .brand, aside > .muted { display: none; }
+    #history { display: flex; overflow: auto; }
+    #history button { max-width: 170px; flex-shrink: 0; }
+    .history-row { max-width: 215px; flex: 0 0 auto; }
+    header { padding: 8px 12px; }
+    header button { padding: .35rem .55rem; }
+  }
+  .execution { margin-top: 10px; font-size: .9rem; }
+  .execution summary { cursor: pointer; }
+  .execution div { margin-top: 8px; }
+  .execution p { margin: 2px 0 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside id="sidebar" aria-label="Conversaciones">
+    <button id="new-chat" type="button">+ Nuevo chat</button>
+    <span class="muted">Conversaciones</span>
+    <nav id="history" aria-label="Historial de conversaciones"></nav>
+    <div class="brand"><span class="badge" aria-hidden="true">&#8383;</span> Asistente cripto</div>
+    <button id="logout" type="button">Cerrar sesión</button>
+  </aside>
+  <main>
+    <header>
+      <div>
+        <button id="sidebar-toggle" type="button" aria-controls="sidebar" aria-expanded="true" aria-label="Contraer menú" title="Contraer menú">☰</button>
+        <strong>Asistente cripto</strong> <span id="role" class="muted"></span>
+      </div>
+      <div>
+        <button id="theme" type="button" role="switch" aria-label="Tema claro" aria-checked="false">
+          <span class="moon" aria-hidden="true">☾</span>
+          <span class="sun" aria-hidden="true">☀</span>
+        </button>
+      </div>
+    </header>
+    <div class="scroll" id="scroll">
+      <div class="width">
+        <section id="welcome">
+          <div class="welcome-logo" aria-hidden="true">&#8383;</div>
+          <h1>¿En qué puedo ayudarte?</h1>
+          <p class="muted">Calcula una ganancia o consulta al especialista sobre conceptos cripto.</p>
+          <div class="examples">
+            <button type="button">Compré 0,5 BTC a USD 40000 y hoy cada BTC vale USD 50000. ¿Cuánto gané?</button>
+            <button type="button">¿Qué es una billetera de criptomonedas?</button>
+          </div>
+        </section>
+        <div class="messages" id="messages" role="log" aria-label="Mensajes"></div>
+      </div>
+    </div>
+    <footer class="width">
+      <p id="status" role="status"></p>
+      <form id="composer" class="composer">
+        <textarea id="message" aria-label="Mensaje" placeholder="Escribe tu mensaje…" rows="1" maxlength="4000" required></textarea>
+        <button id="send" class="primary" type="submit">Enviar</button>
+      </form>
+    </footer>
+  </main>
+</div>
+
+<script>
+  const byId = id => document.getElementById(id);
+  const input = byId('message');
+  const status = byId('status');
+  let chats = [];
+  let canDelete = false;
+  let active;
+  let pending = false;
+  let scrollFrame;
+
+  async function loadChats() {
+    const response = await fetch('/app/history', {cache: 'no-store'});
+    if (response.status === 401) { window.location.replace('/app'); return; }
+    if (!response.ok) throw new Error('No se pudo cargar el historial.');
+    const history = await response.json();
+    chats = history.chats;
+    canDelete = history.canDelete;
+    byId('role').textContent = canDelete ? 'Administrador' : 'Usuario';
+  }
+
+  function render() {
+    byId('history').replaceChildren();
+    for (const chat of chats) {
+      if (!chat.sessionId) continue;
+      const row = document.createElement('div');
+      row.className = 'history-row';
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = chat.messages[0]?.text || 'Nuevo chat';
+      button.setAttribute('aria-current', String(chat === active));
+      button.disabled = pending;
+      button.onclick = () => { active = chat; status.textContent = ''; render(); };
+      row.append(button);
+      if (canDelete && chat.sessionId && !pending) {
+        const options = document.createElement('details');
+        options.className = 'history-options';
+        const toggle = document.createElement('summary');
+        toggle.textContent = '⋯';
+        toggle.setAttribute('aria-label', 'Opciones de ' + button.textContent);
+        options.append(toggle);
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'history-delete';
+        remove.textContent = 'Eliminar conversación';
+        remove.hidden = true;
+        options.addEventListener('toggle', () => { remove.hidden = !options.open; });
+        remove.onclick = () => deleteChat(chat);
+        row.append(options, remove);
+      }
+      byId('history').append(row);
+    }
+    byId('welcome').hidden = active.messages.length > 0;
+    const messages = byId('messages');
+    messages.replaceChildren();
+    for (const message of active.messages) {
+      const article = document.createElement('article');
+      article.className = 'message ' + message.role;
+      const label = document.createElement('strong');
+      label.textContent = message.role === 'user' ? 'Tú' : 'Asistente cripto';
+      const content = document.createElement('div');
+      content.textContent = message.text;
+      article.append(label, content);
+      if (message.role === 'assistant') {
+        const meta = document.createElement('div');
+        meta.className = 'message-meta';
+        if (message.answeredAt) {
+          const time = document.createElement('time');
+          time.dateTime = message.answeredAt;
+          time.textContent = new Date(message.answeredAt).toLocaleTimeString('es-CL', {
+            hour: '2-digit', minute: '2-digit'
+          });
+          meta.append(time);
+        }
+        const copy = document.createElement('button');
+        copy.type = 'button';
+        copy.textContent = '⧉';
+        copy.title = 'Copiar respuesta';
+        copy.setAttribute('aria-label', copy.title);
+        copy.onclick = async () => {
+          try {
+            await navigator.clipboard.writeText(message.text);
+            status.textContent = 'Respuesta copiada.';
+          } catch {
+            status.textContent = 'No se pudo copiar la respuesta.';
+          }
+        };
+        meta.append(copy);
+        if (message.execution) {
+          const execution = document.createElement('details');
+          execution.className = 'execution';
+          const title = document.createElement('summary');
+          title.textContent = 'Ver ejecución';
+          execution.append(title);
+          const labels = {
+            ruta: 'Ruta', traza: 'Pasos', herramientas: 'Herramientas ReAct',
+            mcp: 'CoinGecko MCP', fuentes: 'Fuentes', solicitud_id: 'ID de solicitud',
+            delegacion: 'Delegación A2A'
+          };
+          for (const [key, label] of Object.entries(labels)) {
+            const value = message.execution[key];
+            if (!value || (Array.isArray(value) && !value.length)) continue;
+            const section = document.createElement('div');
+            const heading = document.createElement('strong');
+            heading.textContent = label;
+            const content = document.createElement('p');
+            if (key === 'delegacion') {
+              const {agente, encargo, respuesta, estado, tarea_id} = value;
+              content.textContent = [
+                'Agente: ' + agente, 'Encargo: ' + encargo, 'Estado: ' + estado,
+                tarea_id && 'Tarea: ' + tarea_id, respuesta && 'Respuesta: ' + respuesta
+              ].filter(Boolean).join('\n');
+            } else {
+              content.textContent = Array.isArray(value) ? value.join('\n') : value;
+            }
+            section.append(heading, content);
+            execution.append(section);
+          }
+          article.append(execution);
+        }
+        article.append(meta);
+      }
+      messages.append(article);
+    }
+    byId('new-chat').disabled = pending;
+    byId('send').disabled = pending;
+    input.readOnly = pending;
+    cancelAnimationFrame(scrollFrame);
+    scrollFrame = requestAnimationFrame(() => {
+      const scroll = byId('scroll');
+      scroll.scrollTop = scroll.scrollHeight;
+    });
+  }
+
+  function newChat() {
+    active = { messages: [], sessionId: null };
+    chats = [active, ...chats.filter(chat => chat.sessionId)];
+    input.value = '';
+    status.textContent = '';
+    render();
+    input.focus();
+  }
+
+  async function deleteChat(chat) {
+    if (!canDelete || pending || !chat.sessionId) return;
+    if (!window.confirm('¿Eliminar esta conversación?')) return;
+    pending = true;
+    status.textContent = 'Eliminando conversación…';
+    render();
+    try {
+      const response = await fetch('/app/chat', {
+        method: 'DELETE',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({session_id: chat.sessionId})
+      });
+      if (response.status === 401) { window.location.replace('/app'); return; }
+      if (!response.ok) throw new Error();
+    } catch {
+      status.textContent = 'No se pudo eliminar la conversación del servidor. Intenta nuevamente.';
+      return;
+    } finally {
+      pending = false;
+      render();
+    }
+    chats.splice(chats.indexOf(chat), 1);
+    if (chat === active) {
+      newChat();
+    } else {
+      status.textContent = '';
+      render();
+      byId('new-chat').focus();
+    }
+  }
+
+  byId('new-chat').onclick = newChat;
+  byId('logout').onclick = async () => {
+    try {
+      const response = await fetch('/app/logout', {method: 'POST'});
+      if (!response.ok) throw new Error();
+      window.location.replace('/app');
+    } catch {
+      status.textContent = 'No se pudo cerrar sesión. Intenta nuevamente.';
+    }
+  };
+  byId('sidebar-toggle').onclick = event => {
+    const collapsed = document.querySelector('.layout').classList.toggle('sidebar-collapsed');
+    const label = collapsed ? 'Expandir menú' : 'Contraer menú';
+    event.currentTarget.setAttribute('aria-expanded', String(!collapsed));
+    event.currentTarget.setAttribute('aria-label', label);
+    event.currentTarget.title = label;
+  };
+  byId('theme').onclick = event => {
+    const light = document.documentElement.dataset.theme !== 'light';
+    document.documentElement.dataset.theme = light ? 'light' : 'dark';
+    event.currentTarget.setAttribute('aria-checked', String(light));
+  };
+  document.querySelectorAll('.examples button').forEach(button => {
+    button.onclick = () => { input.value = button.textContent; input.focus(); };
+  });
+  input.addEventListener('keydown', event => {
+    if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
+      event.preventDefault();
+      byId('composer').requestSubmit();
+    }
+  });
+
+  byId('composer').addEventListener('submit', async event => {
+    event.preventDefault();
+    const text = input.value.trim();
+    if (pending || !text) return;
+
+    input.rows = 1;
+    pending = true;
+    active.messages.push({role: 'user', text});
+    input.value = '';
+    status.textContent = 'El Asistente cripto está consultando…';
+    render();
+    try {
+      const response = await fetch('/app/chat', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({message: text, session_id: active.sessionId})
+      });
+      if (response.status === 401) { window.location.replace('/app'); return; }
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(typeof result.error === 'string' ? result.error : 'El agente no pudo responder. Intenta nuevamente.');
+      }
+      active.sessionId = result.session_id;
+      active.messages.push({
+        role: 'assistant', text: result.reply, answeredAt: result.answeredAt, execution: result.execution
+      });
+      status.textContent = '';
+    } catch (error) {
+      active.messages.pop();
+      input.value = text;
+      status.textContent = error instanceof SyntaxError || error instanceof TypeError
+        ? 'No se pudo conectar con el agente. Intenta nuevamente.'
+        : error.message;
+    } finally {
+      pending = false;
+      render();
+      input.focus({preventScroll: true});
+    }
+  });
+
+  window.addEventListener('pageshow', event => {
+    if (event.persisted) window.location.reload();
+  });
+
+  newChat();
+  pending = true;
+  render();
+  loadChats().then(() => {
+    chats.unshift(active);
+  }).catch(error => {
+    status.textContent = error.message;
+  }).finally(() => {
+    pending = false;
+    render();
+  });
+</script>
+</body>
+</html>

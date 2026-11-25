@@ -1,7 +1,9 @@
 import logging
+import re
 from secrets import compare_digest
 from uuid import uuid4
 
+from langchain_core.exceptions import ModelRateLimitError
 from pydantic import BaseModel, Field, ValidationError
 from starlette.applications import Starlette
 from starlette.concurrency import run_in_threadpool
@@ -12,10 +14,20 @@ from starlette.routing import Route
 from config import settings
 from main import graph
 from nodes.juez import MENSAJE_SEGURO
+from tools.herramientas import calcular_ganancia
 from web_ui import routes as web_routes
 
 
 logger = logging.getLogger("uvicorn.error")
+
+
+# Respaldo de solo lectura para la consulta de ejemplo con montos explícitos.
+NUMERO = r"[0-9]{1,12}(?:[.,][0-9]{1,8})?"
+COMPRA_EXPLICITA = re.compile(
+    rf"compr[ée] ({NUMERO}) ([a-z0-9]{{1,12}}) a usd ({NUMERO}) "
+    rf"y hoy cada \2 vale usd ({NUMERO})[.]? ¿?cu[aá]nto gan[ée]\?",
+    re.IGNORECASE,
+)
 
 
 class Consulta(BaseModel):
@@ -51,6 +63,25 @@ async def ejecutar_consulta(mensaje: str, historial: list[dict]) -> tuple[dict, 
             "trace": [],
             "permitir_escritura": False,
         })
+    except ModelRateLimitError:
+        compra = COMPRA_EXPLICITA.fullmatch(" ".join(mensaje.split()))
+        if compra is None:
+            return {
+                "solicitud_id": solicitud_id,
+                "error": "Gemini alcanzó su límite de uso. Intenta de nuevo en unos minutos.",
+            }, 503
+        cantidad, _, compra_usd, actual_usd = compra.groups()
+        montos = (float(valor.replace(",", ".")) for valor in (cantidad, compra_usd, actual_usd))
+        cantidad_num, compra_num, actual_num = montos
+        calculo = calcular_ganancia.invoke({
+            "cantidad": cantidad_num, "precio_compra": compra_num, "precio_actual": actual_num,
+        })
+        resultado = {
+            "branch": "herramienta",
+            "final_answer": f"Cálculo en USD. {calculo}",
+            "trace": ["limite_gemini", "calculo_local"],
+            "pasos_react": [f"Respaldo local: calcular_ganancia → {calculo}"],
+        }
     except Exception as exc:
         logger.warning("solicitud=%s estado=error tipo=%s", solicitud_id, type(exc).__name__)
         return {

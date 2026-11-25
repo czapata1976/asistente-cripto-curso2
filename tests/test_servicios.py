@@ -1,3 +1,5 @@
+import asyncio
+from langchain_core.exceptions import ModelRateLimitError
 import unittest
 from unittest.mock import AsyncMock, patch
 
@@ -25,3 +27,15 @@ class ServiciosTest(unittest.TestCase):
         self.assertEqual(resultado["id"], "prueba")
         self.assertEqual(resultado["result"]["status"]["state"], "completed")
         self.assertEqual(resultado["result"]["artifacts"][0]["parts"][0]["kind"], "text")
+
+
+    def test_calculo_responde_ante_limite_de_gemini(self):
+        pregunta = "Compré 0,5 BTC a USD 40000 y hoy cada BTC vale USD 50000. ¿Cuánto gané?"
+        with patch.object(servidor.graph, "invoke", side_effect=ModelRateLimitError("429")):
+            dato, status = asyncio.run(servidor.ejecutar_consulta(pregunta, []))
+            invalido, status_invalido = asyncio.run(servidor.ejecutar_consulta("Otro mensaje", []))
+        self.assertEqual(status, 200)
+        self.assertIn("5,000.00", dato["respuesta"])
+        self.assertIn("calculo_local", dato["traza"])
+        self.assertEqual(status_invalido, 503)
+        self.assertIn("Gemini", invalido["error"])

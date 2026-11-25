@@ -29,7 +29,7 @@
   .layout.sidebar-collapsed aside { display: none; }
   aside { padding: 22px 15px; background: var(--panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 15px; min-height: 0; }
   .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; }
-  .badge { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 11px; background: var(--user); color: var(--accent); font-weight: 750; }
+  .badge { width: 36px; height: 36px; }
   .muted { color: var(--muted); }
   #history { display: grid; align-content: start; gap: 6px; overflow: auto; flex: 1; }
   #history button { text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: transparent; border-color: transparent; }
@@ -49,7 +49,7 @@
   .scroll { min-height: 0; overflow: auto; overscroll-behavior: contain; }
   .width { width: min(100% - 32px, 760px); margin-inline: auto; }
   #welcome { padding: clamp(35px, 12vh, 125px) 0 24px; text-align: center; }
-  .welcome-logo { width: 110px; height: 110px; display: grid; place-items: center; margin: 0 auto 20px; border-radius: 30px; background: #f8c577; color: #221504; font-size: 66px; font-weight: 750; }
+  .welcome-logo { display: block; width: 110px; height: 110px; margin: 0 auto 20px; }
   h1 { font-size: clamp(28px, 5vw, 44px); line-height: 1.14; letter-spacing: -.045em; margin: 0 0 12px; }
   .examples { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 25px; }
   .messages { padding-block: 22px; display: grid; gap: 22px; }
@@ -107,7 +107,7 @@
     <button id="new-chat" type="button">+ Nuevo chat</button>
     <span class="muted">Conversaciones</span>
     <nav id="history" aria-label="Historial de conversaciones"></nav>
-    <div class="brand"><span class="badge" aria-hidden="true">&#8383;</span> Asistente cripto</div>
+    <div class="brand"><img class="badge" src="/app/logo-cripto.png" alt=""> Asistente cripto</div>
     <button id="logout" type="button">Cerrar sesión</button>
   </aside>
   <main>
@@ -126,7 +126,7 @@
     <div class="scroll" id="scroll">
       <div class="width">
         <section id="welcome">
-          <div class="welcome-logo" aria-hidden="true">&#8383;</div>
+          <img class="welcome-logo" src="/app/logo-cripto.png" alt="">
           <h1>¿En qué puedo ayudarte?</h1>
           <p class="muted">Calcula una ganancia o consulta al especialista sobre conceptos cripto.</p>
           <div class="examples">

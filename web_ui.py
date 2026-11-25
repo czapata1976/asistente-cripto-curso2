@@ -14,7 +14,7 @@ from uuid import uuid4
 from pydantic import BaseModel, Field, UUID4
 from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
-from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
+from starlette.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from starlette.routing import Route
 
 from config import settings
@@ -81,7 +81,7 @@ async def root(request: Request) -> RedirectResponse:
 async def pagina(request: Request) -> HTMLResponse:
     nombre = "chat.html" if identidad(request) else "login.html"
     html = (PAGES / nombre).read_text(encoding="utf-8")
-    directivas = ["default-src 'none'", "connect-src 'self'", "base-uri 'none'",
+    directivas = ["default-src 'none'", "connect-src 'self'", "img-src 'self'", "base-uri 'none'",
                   "form-action 'self'", "frame-ancestors 'none'"]
     for tag in ("style", "script"):
         hashes = ["'sha256-" + b64encode(hashlib.sha256(block.encode()).digest()).decode() + "'"
@@ -194,7 +194,12 @@ async def delete(request: Request) -> Response:
     return Response(status_code=204)
 
 
+async def logo(request: Request) -> FileResponse:
+    return FileResponse(PAGES / "logo-cripto.png", media_type="image/png")
+
+
 routes = [
+    Route("/app/logo-cripto.png", logo),
     Route("/", root),
     Route("/app", pagina),
     Route("/app/login", login, methods=["POST"]),

@@ -102,14 +102,26 @@ Consultar-Cripto 'Registra una compra simulada de 1 BTC a 40000 USD.'
 ## Despliegue desde GitLab
 
 `.gitlab-ci.yml` ejecuta pruebas con cada push. Un push a la rama por defecto
-que pase las pruebas construye una imagen en Artifact Registry y despliega
+que pase las pruebas construye una imagen con Cloud Build y la publica en Artifact Registry. Luego despliega
 `cripto-especialista` (privado con IAM) y `agente-cripto-uai` (HTTPS con login de la app).
+
+Cloud Build, los buckets de fuentes y logs de la compilación, Artifact Registry
+y los dos servicios usan `GCP_REGION`. En el proyecto actual, configura
+`GCP_REGION=southamerica-west1`. Para compilar manualmente sin usar el endpoint
+global, ejecuta desde la raíz del repositorio:
+
+```powershell
+$commit = git rev-parse --short HEAD
+$image = "southamerica-west1-docker.pkg.dev/agente-bryhan-uai/cloud-run-source-deploy/asistente-cripto:$commit"
+gcloud builds submit --project=agente-bryhan-uai --region=southamerica-west1 --default-buckets-behavior=regional-user-owned-bucket "--tag=$image"
+```
+
 
 Configuración inicial:
 
 1. Habilita Cloud Build, Artifact Registry, Cloud Run y Secret Manager en GCP.
    Crea el repositorio Docker en la región elegida. Da al ejecutor de Cloud Build
-   acceso de escritura al repositorio y acceso a las fuentes del build.
+   acceso de escritura al repositorio y a los buckets regionales de fuentes y logs.
 2. Configura [Workload Identity Federation](https://docs.gitlab.com/ci/cloud_services/google_cloud/)
    para el proyecto GitLab y restringe el proveedor a esta rama y repositorio.
    La identidad de despliegue debe poder ejecutar builds, desplegar servicios,

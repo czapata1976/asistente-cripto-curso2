@@ -33,7 +33,8 @@ cloud_run:
         --output-file="$AUTH_DIR/credentials.json"
       gcloud auth login --cred-file="$AUTH_DIR/credentials.json" --quiet
       IMAGE="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GCP_ARTIFACT_REPOSITORY}/asistente-cripto:${CI_COMMIT_SHA}"
-      gcloud builds submit --project="$GCP_PROJECT_ID" --tag="$IMAGE" --quiet
+      gcloud builds submit --project="$GCP_PROJECT_ID" --region="$GCP_REGION" \
+        --default-buckets-behavior=regional-user-owned-bucket --tag="$IMAGE" --quiet
       gcloud run deploy cripto-especialista --project="$GCP_PROJECT_ID" --region="$GCP_REGION" \
         --image="$IMAGE" --service-account="$GCP_A2A_SERVICE_ACCOUNT" --no-allow-unauthenticated \
         --set-env-vars=APP_MODULE=servidor_especialista:app \

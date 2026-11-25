@@ -44,7 +44,7 @@ cloud_run:
       A2A_URL="$(gcloud run services describe cripto-especialista --project="$GCP_PROJECT_ID" \
         --region="$GCP_REGION" --format='value(status.url)')"
       test -n "$A2A_URL"
-      gcloud run deploy cripto-chat --project="$GCP_PROJECT_ID" --region="$GCP_REGION" \
+      gcloud run deploy agente-cripto-uai --project="$GCP_PROJECT_ID" --region="$GCP_REGION" \
         --image="$IMAGE" --service-account="$GCP_CHAT_SERVICE_ACCOUNT" --allow-unauthenticated \
         --set-env-vars="ESPECIALISTA_A2A_URL=$A2A_URL,ESPECIALISTA_CLOUD_RUN_IAM=1,WEB_SECURE_COOKIE=1,WEB_HISTORY_POSTGRES=1,MCP_URL=https://mcp.api.coingecko.com/mcp" \
         --set-secrets=GOOGLE_API_KEY=cripto-gemini:latest,SUPABASE_DB_URL=cripto-supabase:latest,CRIPTO_API_TOKEN=cripto-api-token:latest,WEB_USER_PASSWORD=cripto-web-user:latest,WEB_ADMIN_PASSWORD=cripto-web-admin:latest,WEB_SESSION_SECRET=cripto-web-session:latest --quiet

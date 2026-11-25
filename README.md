@@ -103,7 +103,7 @@ Consultar-Cripto 'Registra una compra simulada de 1 BTC a 40000 USD.'
 
 `.gitlab-ci.yml` ejecuta pruebas con cada push. Un push a la rama por defecto
 que pase las pruebas construye una imagen en Artifact Registry y despliega
-`cripto-especialista` (privado con IAM) y `cripto-chat` (HTTPS con login de la app).
+`cripto-especialista` (privado con IAM) y `agente-cripto-uai` (HTTPS con login de la app).
 
 Configuración inicial:
 

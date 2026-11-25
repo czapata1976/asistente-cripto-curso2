@@ -11,7 +11,7 @@ Reglas estrictas:
    externo.
 2. CITAS: cita la fuente entre corchetes al final de cada afirmación.
 3. FUERA DE CONTEXTO: si los fragmentos no bastan para responder, responde
-   exactamente: "No tengo esa información en la guía."
+   exactamente: "No tengo esa información en el material disponible."
 4. NO des recomendaciones de inversión; solo explicas conceptos.
 """
 

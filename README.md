@@ -6,13 +6,13 @@ explica conceptos desde la guía del curso y consulta precios mediante CoinGecko
 - **Agente principal** (`main.py`, `servidor.py`). Clasifica la solicitud, ejecuta el
   ciclo ReAct para cálculos y pasa la respuesta por un juez. La API es de solo lectura.
 - **Especialista cripto** (`especialista.py`). Corre en otro proceso, expone A2A
-  de forma nativa mediante LangGraph y recupera fragmentos de la guía desde Redis.
+  de forma nativa mediante LangGraph y recupera fragmentos de la guía desde Supabase con pgvector.
   Devuelve una respuesta con fuentes o indica que faltan evidencias.
 
 ```text
 POST /consulta → router del agente principal
                   ├─ cálculo → herramientas ReAct
-                  ├─ conceptos → A2A → especialista → guía en Redis
+                  ├─ conceptos → A2A → especialista → guía en Supabase
                   ├─ precio → CoinGecko MCP
                   └─ conversación
                 → juez → respuesta y trazas
@@ -29,11 +29,29 @@ python -m pip install -r requirements.txt
 Copy-Item .env.example .env
 ```
 
-Completa `GOOGLE_API_KEY`, `GOOGLE_MODEL`, `REDIS_URL`, `REDIS_PREFIJO` y
-`CRIPTO_API_TOKEN` en el archivo local. Usa un token privado para la API. Ajusta
-`REDIS_PREFIJO` al prefijo donde está cargado tu corpus. Si necesitas cargarlo,
-ejecuta `cargar_documento_redis.ipynb` con tu propio prefijo y los documentos de esta
-carpeta. El especialista lee la colección `<REDIS_PREFIJO>:ebook_cripto`.
+Completa `GOOGLE_API_KEY`, `GOOGLE_MODEL`, `SUPABASE_DB_URL` y
+`CRIPTO_API_TOKEN` en el archivo local. Usa la URI del pooler de Supabase
+en modo transacción con TLS. Aplica la migración de `supabase/migrations/`
+antes de cargar la guía. Coloca el PDF `Criptoactivos_Basico.pdf` en la
+carpeta padre o ajusta la ruta del comando al archivo que tengas. Desde la
+raíz del repositorio, ejecuta:
+
+```powershell
+python cargar_guia_supabase.py "..\Criptoactivos_Basico.pdf"
+```
+
+La carga envía los fragmentos a Gemini para generar los embeddings y guarda
+el texto, el archivo, la página y los vectores en `cripto.fragmentos`.
+
+La carga inicial del proyecto `agente-cripto` indexó **170 fragmentos de
+65 páginas** con `gemini-embedding-001` (3.072 dimensiones). Para reproducir
+la prueba, inicia el especialista A2A y el chat, ingresa como `usuario` y
+pregunta «¿Qué es una stablecoin y cómo mantiene su paridad?».
+En **Ver ejecución**, comprueba que la ruta sea `rag`, que la delegación
+tenga un ID de tarea y que la respuesta muestre citas del PDF. La prueba
+local recuperó las páginas 36, 40 y 41. El detalle muestra extractos y
+puntuaciones de similitud.
+
 `MCP_URL` configura CoinGecko. `ESPECIALISTA_A2A_URL` apunta al servidor LangGraph.
 `ESPECIALISTA_API_TOKEN` se configura si ese servidor requiere clave.
 

@@ -31,6 +31,9 @@ class Settings:
     google_api_key: str = os.getenv("GOOGLE_API_KEY", "")
     google_model: str = os.getenv("GOOGLE_MODEL", "gemini-3.6-flash")
 
+    supabase_db_url: str = os.getenv("SUPABASE_DB_URL", "")
+    embedding_model: str = os.getenv("GEMINI_EMBEDDING_MODEL", "gemini-embedding-001")
+
     # --- RAG con Redis (bono, opcional) ---
     redis_url: str = os.getenv("REDIS_URL", "")
     redis_prefijo: str = os.getenv("REDIS_PREFIJO", "")

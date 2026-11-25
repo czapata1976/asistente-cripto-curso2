@@ -29,3 +29,4 @@ langgraph-cli[inmem]>=0.4,<1
 starlette>=0.49,<2
 uvicorn>=0.35,<1
 httpx>=0.27,<1
+psycopg[binary]>=3.2,<4

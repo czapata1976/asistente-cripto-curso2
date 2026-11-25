@@ -80,6 +80,25 @@
   .execution summary { cursor: pointer; }
   .execution div { margin-top: 8px; }
   .execution p { margin: 2px 0 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .typing {
+    display: inline-flex; align-items: center; gap: 10px; padding: 9px 13px;
+    border: 1px solid var(--line); border-radius: 14px; background: var(--panel);
+    color: var(--muted); font-size: .875rem;
+  }
+  .typing-dots { display: inline-flex; align-items: center; gap: 4px; }
+  .typing-dots span {
+    width: 5px; height: 5px; border-radius: 50%; background: var(--accent);
+    animation: typing-pulse 1.2s ease-in-out infinite;
+  }
+  .typing-dots span:nth-child(2) { animation-delay: .15s; }
+  .typing-dots span:nth-child(3) { animation-delay: .3s; }
+  @keyframes typing-pulse {
+    0%, 60%, 100% { opacity: .4; transform: translateY(0); }
+    30% { opacity: 1; transform: translateY(-3px); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .typing-dots span { animation: none; }
+  }
 </style>
 </head>
 <body>
@@ -136,6 +155,7 @@
   let canDelete = false;
   let active;
   let pending = false;
+  let waitingForReply = false;
   let scrollFrame;
 
   async function loadChats() {
@@ -234,10 +254,12 @@
             heading.textContent = label;
             const content = document.createElement('p');
             if (key === 'delegacion') {
-              const {agente, encargo, respuesta, estado, tarea_id} = value;
+              const {agente, encargo, respuesta, estado, tarea_id, fragmentos = []} = value;
               content.textContent = [
                 'Agente: ' + agente, 'Encargo: ' + encargo, 'Estado: ' + estado,
-                tarea_id && 'Tarea: ' + tarea_id, respuesta && 'Respuesta: ' + respuesta
+                tarea_id && 'Tarea: ' + tarea_id, respuesta && 'Respuesta: ' + respuesta,
+                ...fragmentos.map(({fuente, extracto, similitud}) =>
+                  fuente + ' (' + similitud.toFixed(3) + ')\n' + extracto)
               ].filter(Boolean).join('\n');
             } else {
               content.textContent = Array.isArray(value) ? value.join('\n') : value;
@@ -249,6 +271,21 @@
         }
         article.append(meta);
       }
+      messages.append(article);
+    }
+    if (waitingForReply) {
+      const article = document.createElement('article');
+      article.className = 'message assistant';
+      const label = document.createElement('strong');
+      label.textContent = 'Asistente cripto';
+      const indicator = document.createElement('div');
+      indicator.className = 'typing';
+      const dots = document.createElement('span');
+      dots.className = 'typing-dots';
+      dots.setAttribute('aria-hidden', 'true');
+      dots.append(...Array.from({length: 3}, () => document.createElement('span')));
+      indicator.append(dots, 'Preparando respuesta…');
+      article.append(label, indicator);
       messages.append(article);
     }
     byId('new-chat').disabled = pending;
@@ -340,9 +377,10 @@
 
     input.rows = 1;
     pending = true;
+    waitingForReply = true;
     active.messages.push({role: 'user', text});
     input.value = '';
-    status.textContent = 'El Asistente cripto está consultando…';
+    status.textContent = '';
     render();
     try {
       const response = await fetch('/app/chat', {
@@ -367,6 +405,7 @@
         ? 'No se pudo conectar con el agente. Intenta nuevamente.'
         : error.message;
     } finally {
+      waitingForReply = false;
       pending = false;
       render();
       input.focus({preventScroll: true});

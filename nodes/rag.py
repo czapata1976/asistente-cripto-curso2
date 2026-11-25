@@ -1,4 +1,4 @@
-"""Nodo RAG: responde conceptos usando la guía cargada en el Redis del curso.
+"""Nodo RAG: responde conceptos usando la guía cargada en Supabase.
 
 Aplica un umbral de parecido: si el mejor fragmento no lo supera, no llama al
 LLM y responde que no tiene la información. Así se cumple la regla de la pauta:
@@ -8,7 +8,7 @@ usar RAG solo cuando de verdad hay evidencia en el corpus.
 from llm import get_llm
 from prompts.rag_prompt import RAG_SYSTEM_PROMPT, RAG_USER_PROMPT
 from services.mensajes import normalizar
-from services import rag_redis
+from services import rag_supabase
 from state import AgentState
 
 
@@ -21,7 +21,7 @@ def rag(state: AgentState) -> dict:
     """Recupera fragmentos, aplica umbral y responde citando fuentes."""
     pregunta = state.get("user_input", "")
     try:
-        fragmentos = rag_redis.buscar(pregunta, k=3)
+        fragmentos = rag_supabase.buscar(pregunta, k=3)
     except Exception:
         return {
             "borrador": (
@@ -42,15 +42,27 @@ def rag(state: AgentState) -> dict:
             "trace": ["rag"],
         }
 
-    contexto = rag_redis.formatear(fragmentos)
-    fuentes = [f["fuente"] for f in fragmentos]
+    contexto = rag_supabase.formatear(fragmentos)
+    fuentes = list(dict.fromkeys(f["fuente"] for f in fragmentos))
     mensajes = [
         ("system", RAG_SYSTEM_PROMPT),
         ("human", RAG_USER_PROMPT.format(contexto=contexto, pregunta=pregunta)),
     ]
-    respuesta = get_llm().invoke(mensajes)
+    respuesta = normalizar(get_llm().invoke(mensajes))
+    sin_evidencia = respuesta.strip().casefold().rstrip(".") == SIN_INFO.casefold().rstrip(".")
+    if not sin_evidencia and not any(fuente in respuesta for fuente in fuentes):
+        respuesta += "\n\nFuentes consultadas: " + "; ".join(fuentes)
     return {
-        "borrador": normalizar(respuesta),
+        "borrador": respuesta,
+        "rag_sin_evidencia": sin_evidencia,
+        "fragmentos_rag": [
+            {
+                "fuente": f["fuente"],
+                "extracto": f["texto"][:320] + ("…" if len(f["texto"]) > 320 else ""),
+                "similitud": round(f["parecido"], 3),
+            }
+            for f in fragmentos
+        ],
         "fuentes_rag": fuentes,
         "pasos_react": [f"fragmentos usados: {fuentes}"],
         "trace": ["rag"],

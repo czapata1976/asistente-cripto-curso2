@@ -14,11 +14,12 @@ def responder(state: MessagesState) -> dict:
     try:
         resultado = rag({"user_input": pregunta})
         fuentes = resultado.get("fuentes_rag", [])
-        estado = "respondido" if fuentes else "sin_evidencia"
+        estado = "respondido" if fuentes and not resultado.get("rag_sin_evidencia") else "sin_evidencia"
         if resultado.get("rag_no_disponible"):
             estado = "no_disponible"
         respuesta = RespuestaEspecialista(
-            respuesta=resultado["borrador"], fuentes=fuentes, estado=estado
+            respuesta=resultado["borrador"], fuentes=fuentes, estado=estado,
+            fragmentos=resultado.get("fragmentos_rag", []),
         )
     except Exception:
         respuesta = RespuestaEspecialista(

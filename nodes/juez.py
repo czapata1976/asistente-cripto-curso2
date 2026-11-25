@@ -49,7 +49,7 @@ def crear_juez(incluir_juez_llm: bool = True):
         delegacion = state.get("delegacion", {})
         if (
             not incluir_juez_llm
-            or delegacion.get("estado") in {"fallo_a2a", "no_disponible"}
+            or delegacion.get("estado") in {"fallo_a2a", "no_disponible", "sin_evidencia"}
             or "accion_bloqueada" in state.get("trace", [])
         ):
             return {"final_answer": borrador, "trace": ["juez"]}
@@ -66,6 +66,10 @@ def crear_juez(incluir_juez_llm: bool = True):
         # Segunda pasada determinista por si el juez dejó pasar algo.
         if _tiene_contenido_prohibido(final):
             final = MENSAJE_SEGURO
+        elif delegacion.get("estado") == "respondido":
+            fuentes = state.get("fuentes_rag", [])
+            if fuentes and not any(fuente in final for fuente in fuentes):
+                final += "\n\nFuentes consultadas: " + "; ".join(fuentes)
         return {"final_answer": final, "trace": ["juez"]}
 
     return juez

@@ -12,3 +12,4 @@ __pycache__/
 
 .langgraph_api/
 datos/historial_web.sqlite3*
+supabase/.temp/

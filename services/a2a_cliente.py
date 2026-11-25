@@ -1,6 +1,8 @@
 from uuid import uuid4
 
 import httpx
+from google.auth.transport.requests import Request
+from google.oauth2 import id_token
 
 from config import settings
 from services.contrato_a2a import RespuestaEspecialista
@@ -15,6 +17,10 @@ def consultar_especialista(pregunta: str) -> tuple[str, RespuestaEspecialista]:
     headers = {}
     if settings.especialista_token:
         headers["X-Api-Key"] = settings.especialista_token
+
+    if settings.especialista_cloud_run_iam:
+        token = id_token.fetch_id_token(Request(), base)
+        headers["Authorization"] = f"Bearer {token}"
 
     with httpx.Client(headers=headers, timeout=httpx.Timeout(30, connect=4)) as cliente:
         discovery = cliente.post(

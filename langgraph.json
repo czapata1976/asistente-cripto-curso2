@@ -1,7 +1,0 @@
-{
-  "dependencies": ["."],
-  "graphs": {
-    "especialista_cripto": "./especialista.py:graph"
-  },
-  "env": ".env"
-}

@@ -34,14 +34,11 @@ class Settings:
     supabase_db_url: str = os.getenv("SUPABASE_DB_URL", "")
     embedding_model: str = os.getenv("GEMINI_EMBEDDING_MODEL", "gemini-embedding-001")
 
-    # --- RAG con Redis (bono, opcional) ---
-    redis_url: str = os.getenv("REDIS_URL", "")
-    redis_prefijo: str = os.getenv("REDIS_PREFIJO", "")
-
     # --- MCP (bono, opcional) ---
     mcp_url: str = os.getenv("MCP_URL", "")
 
     especialista_url: str = os.getenv("ESPECIALISTA_A2A_URL", "http://127.0.0.1:2024")
+    especialista_cloud_run_iam: bool = os.getenv("ESPECIALISTA_CLOUD_RUN_IAM") == "1"
     especialista_token: str = os.getenv("ESPECIALISTA_API_TOKEN", "")
     api_token: str = os.getenv("CRIPTO_API_TOKEN", "")
 
@@ -49,6 +46,7 @@ class Settings:
     web_admin_password: str = os.getenv("WEB_ADMIN_PASSWORD", "")
     web_session_secret: str = os.getenv("WEB_SESSION_SECRET", "")
     web_secure_cookie: bool = os.getenv("WEB_SECURE_COOKIE", "") == "1"
+    web_history_postgres: bool = os.getenv("WEB_HISTORY_POSTGRES") == "1"
     web_db: Path = Path(os.getenv("WEB_HISTORY_DB", str(PROJECT_DIR / "datos" / "historial_web.sqlite3")))
 
     # --- Trazas / debug ---

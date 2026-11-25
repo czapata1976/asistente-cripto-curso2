@@ -1,0 +1,50 @@
+stages: [test, deploy]
+
+pruebas:
+  stage: test
+  image: python:3.13-slim
+  script:
+    - pip install -r requirements.txt
+    - python -m unittest discover -s tests
+
+cloud_run:
+  stage: deploy
+  image: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  resource_group: cripto-production
+  environment: production
+  id_tokens:
+    GCP_ID_TOKEN:
+      aud: $GCP_WIF_AUDIENCE
+  script:
+    - |
+      set -eu
+      : "${GCP_PROJECT_ID:?}" "${GCP_REGION:?}" "${GCP_ARTIFACT_REPOSITORY:?}"
+      : "${GCP_WIF_PROVIDER:?}" "${GCP_DEPLOY_SERVICE_ACCOUNT:?}"
+      : "${GCP_CHAT_SERVICE_ACCOUNT:?}" "${GCP_A2A_SERVICE_ACCOUNT:?}"
+      umask 077
+      AUTH_DIR="$(mktemp -d)"
+      trap 'rm -f "$AUTH_DIR/token" "$AUTH_DIR/credentials.json"; rmdir "$AUTH_DIR"' EXIT
+      printf '%s' "$GCP_ID_TOKEN" > "$AUTH_DIR/token"
+      gcloud iam workload-identity-pools create-cred-config "$GCP_WIF_PROVIDER" \
+        --service-account="$GCP_DEPLOY_SERVICE_ACCOUNT" \
+        --credential-source-file="$AUTH_DIR/token" \
+        --output-file="$AUTH_DIR/credentials.json"
+      gcloud auth login --cred-file="$AUTH_DIR/credentials.json" --quiet
+      IMAGE="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GCP_ARTIFACT_REPOSITORY}/asistente-cripto:${CI_COMMIT_SHA}"
+      gcloud builds submit --project="$GCP_PROJECT_ID" --tag="$IMAGE" --quiet
+      gcloud run deploy cripto-especialista --project="$GCP_PROJECT_ID" --region="$GCP_REGION" \
+        --image="$IMAGE" --service-account="$GCP_A2A_SERVICE_ACCOUNT" --no-allow-unauthenticated \
+        --set-env-vars=APP_MODULE=servidor_especialista:app \
+        --set-secrets=GOOGLE_API_KEY=cripto-gemini:latest,SUPABASE_DB_URL=cripto-supabase:latest --quiet
+      gcloud run services add-iam-policy-binding cripto-especialista --project="$GCP_PROJECT_ID" \
+        --region="$GCP_REGION" --member="serviceAccount:$GCP_CHAT_SERVICE_ACCOUNT" \
+        --role=roles/run.invoker --quiet
+      A2A_URL="$(gcloud run services describe cripto-especialista --project="$GCP_PROJECT_ID" \
+        --region="$GCP_REGION" --format='value(status.url)')"
+      test -n "$A2A_URL"
+      gcloud run deploy cripto-chat --project="$GCP_PROJECT_ID" --region="$GCP_REGION" \
+        --image="$IMAGE" --service-account="$GCP_CHAT_SERVICE_ACCOUNT" --allow-unauthenticated \
+        --set-env-vars="ESPECIALISTA_A2A_URL=$A2A_URL,ESPECIALISTA_CLOUD_RUN_IAM=1,WEB_SECURE_COOKIE=1,WEB_HISTORY_POSTGRES=1,MCP_URL=https://mcp.api.coingecko.com/mcp" \
+        --set-secrets=GOOGLE_API_KEY=cripto-gemini:latest,SUPABASE_DB_URL=cripto-supabase:latest,CRIPTO_API_TOKEN=cripto-api-token:latest,WEB_USER_PASSWORD=cripto-web-user:latest,WEB_ADMIN_PASSWORD=cripto-web-admin:latest,WEB_SESSION_SECRET=cripto-web-session:latest --quiet

@@ -23,7 +23,7 @@ _PATRONES_PROHIBIDOS = [
     re.compile(r"AIza[0-9A-Za-z_\-]{20,}"),          # claves de Google
     re.compile(r"sk-[0-9A-Za-z]{20,}"),               # claves estilo OpenAI
     re.compile(r"GOOGLE_API_KEY", re.IGNORECASE),
-    re.compile(r"REDIS_URL", re.IGNORECASE),
+    re.compile(r"SUPABASE_DB_URL", re.IGNORECASE),
 ]
 
 MENSAJE_SEGURO = (

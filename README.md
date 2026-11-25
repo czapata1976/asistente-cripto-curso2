@@ -6,7 +6,7 @@ explica conceptos desde la guía del curso y consulta precios mediante CoinGecko
 - **Agente principal** (`main.py`, `servidor.py`). Clasifica la solicitud, ejecuta el
   ciclo ReAct para cálculos y pasa la respuesta por un juez. La API es de solo lectura.
 - **Especialista cripto** (`especialista.py`). Corre en otro proceso, expone A2A
-  de forma nativa mediante LangGraph y recupera fragmentos de la guía desde Supabase con pgvector.
+  por HTTP con un grafo LangGraph y recupera fragmentos de la guía desde Supabase con pgvector.
   Devuelve una respuesta con fuentes o indica que faltan evidencias.
 
 ```text
@@ -60,7 +60,7 @@ Abre dos terminales con el entorno activado y ejecuta:
 ```powershell
 # Terminal 1. Especialista A2A, puerto 2024.
 $env:PYTHONIOENCODING = 'utf-8'
-langgraph dev --no-browser --allow-blocking
+python -m uvicorn servidor_especialista:app --host 127.0.0.1 --port 2024
 ```
 
 ```powershell
@@ -99,11 +99,32 @@ Consultar-Cripto 'Registra una compra simulada de 1 BTC a 40000 USD.'
 | Fallo | Detén el especialista y repite la pregunta educativa. La traza muestra `fallo_a2a` y el principal indica que no pudo consultarlo. |
 | Registro | Busca el `solicitud_id` de la respuesta en la terminal del principal para ver ruta, estado y traza. |
 
-Para entregar al docente, despliega el agente principal con HTTPS y configura
-`ESPECIALISTA_A2A_URL` con la dirección accesible desde ese servicio. Mantén el
-especialista en una red privada o protegido por autenticación. `langgraph dev` es
-el arranque local de desarrollo. Documenta la URL de revisión y comparte el token
-de prueba por el canal privado que indica la pauta.
+## Despliegue desde GitLab
+
+`.gitlab-ci.yml` ejecuta pruebas con cada push. Un push a la rama por defecto
+que pase las pruebas construye una imagen en Artifact Registry y despliega
+`cripto-especialista` (privado con IAM) y `cripto-chat` (HTTPS con login de la app).
+
+Configuración inicial:
+
+1. Habilita Cloud Build, Artifact Registry, Cloud Run y Secret Manager en GCP.
+   Crea el repositorio Docker en la región elegida. Da al ejecutor de Cloud Build
+   acceso de escritura al repositorio y acceso a las fuentes del build.
+2. Configura [Workload Identity Federation](https://docs.gitlab.com/ci/cloud_services/google_cloud/)
+   para el proyecto GitLab y restringe el proveedor a esta rama y repositorio.
+   La identidad de despliegue debe poder ejecutar builds, desplegar servicios,
+   cambiar su IAM y actuar como las cuentas de ejecución.
+3. Configura en GitLab las variables `GCP_PROJECT_ID`, `GCP_REGION`,
+   `GCP_ARTIFACT_REPOSITORY`, `GCP_WIF_AUDIENCE`, `GCP_WIF_PROVIDER`,
+   `GCP_DEPLOY_SERVICE_ACCOUNT`, `GCP_CHAT_SERVICE_ACCOUNT` y
+   `GCP_A2A_SERVICE_ACCOUNT`. El proveedor usa su nombre de recurso completo
+   con el número de proyecto y las cuentas usan su correo de servicio.
+4. Crea los secretos `cripto-gemini`, `cripto-supabase`, `cripto-api-token`,
+   `cripto-web-user`, `cripto-web-admin` y `cripto-web-session`.
+   Otorga acceso por secreto a la cuenta de cada servicio según el pipeline.
+5. Aplica las migraciones de Supabase y carga el PDF una vez. Haz push a
+   `main` y abre `/app` en la URL que entrega Cloud Run. Prueba una pregunta
+   educativa y comprueba la delegación y las citas en **Ver ejecución**.
 
 ## Chat web
 
@@ -118,8 +139,8 @@ servidor y abre [el chat local](http://127.0.0.1:8000/app).
 - **Ver ejecución** muestra la ruta, el ciclo ReAct o el intercambio A2A,
   las fuentes y el ID de la solicitud.
 
-El historial usa SQLite en `datos/historial_web.sqlite3`. Configura
-`WEB_HISTORY_DB` sobre un volumen persistente para conservar conversaciones
-al redesplegar. Usa HTTPS en el servicio desplegado y configura
+El historial local usa SQLite. Para guardar conversaciones en Supabase,
+configura `WEB_HISTORY_POSTGRES=1` y `SUPABASE_DB_URL`. El pipeline ya usa
+este modo para Cloud Run. Los chats previos de SQLite no se importan automáticamente. Usa HTTPS en el servicio desplegado y configura
 `WEB_SECURE_COOKIE=1` si el proxy no informa el esquema a Uvicorn.
 La API `POST /consulta` también sigue disponible mediante su token Bearer.

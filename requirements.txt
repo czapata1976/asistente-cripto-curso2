@@ -12,21 +12,11 @@ python-dotenv==1.1.0
 # --- Bono MCP (CoinGecko) ---
 langchain-mcp-adapters==0.3.2
 
-# --- Bono RAG con Redis del curso ---
-# Embeddings: Google gemini-embedding-001 (vía langchain-google-genai, ya arriba).
-redis==8.1.0
-numpy==2.3.5
-
-# --- Notebook, interfaz y pruebas ---
-ipykernel==7.2.0
-nbformat==5.11.1
-ipywidgets==8.1.9
-langchain-community>=0.4,<1
 pypdf>=5,<8
 
 # --- Servicio HTTP y A2A nativo ---
-langgraph-cli[inmem]>=0.4,<1
 starlette>=0.49,<2
 uvicorn>=0.35,<1
 httpx>=0.27,<1
 psycopg[binary]>=3.2,<4
+google-auth[requests]>=2,<3

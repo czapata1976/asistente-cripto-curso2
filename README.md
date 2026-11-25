@@ -144,3 +144,7 @@ configura `WEB_HISTORY_POSTGRES=1` y `SUPABASE_DB_URL`. El pipeline ya usa
 este modo para Cloud Run. Los chats previos de SQLite no se importan automáticamente. Usa HTTPS en el servicio desplegado y configura
 `WEB_SECURE_COOKIE=1` si el proxy no informa el esquema a Uvicorn.
 La API `POST /consulta` también sigue disponible mediante su token Bearer.
+
+En el despliegue actual, los roles del chat usan las mismas contraseñas
+que en agente-bryhan. Cloud Run las lee de los secretos cripto-web-user
+y cripto-web-admin de Secret Manager.

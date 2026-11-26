@@ -137,6 +137,12 @@ npx n8n start
 python -m uvicorn servidor:app --host 127.0.0.1 --port 8000
 ```
 
+Para comprobar que el workflow de n8n responde A2A antes de seguir:
+
+```powershell
+python scripts\probar_n8n.py
+```
+
 Abre <http://127.0.0.1:8000/app> para el chat web, o usa la API:
 
 ```powershell
@@ -205,12 +211,24 @@ en el repositorio: `.env` está en `.gitignore`.
 
 ## 7. Pruebas y evidencias
 
-### 7.1 Todo lo automatizable, en tres comandos
+### 7.1 Todo lo automatizable, en un comando
+
+```powershell
+.\scripts\probar_todo.ps1
+```
+
+El script comprueba qué servicios están levantados, ejecuta las cuatro suites en
+orden y termina con una tabla resumen. Si no tienes n8n corriendo, usa
+`-SinN8n`: esos casos se marcan omitidos en vez de fallidos. Para una verificación
+rápida sin red ni servicios, `-SoloUnitarias`.
+
+También se pueden ejecutar por separado:
 
 ```powershell
 python -m unittest discover -s tests          # 9 pruebas unitarias
-python -m evals.ejecutar --sin-dependencias   # 11 casos del agente
-python evidencias/pruebas_base.py             # 18 pruebas de la base
+python -m evals.ejecutar                      # 12 casos del agente
+python evidencias/pruebas_base.py             # 20 pruebas de la base
+python scripts/metricas.py                    # métricas del registro
 ```
 
 Resultados de la última corrida registrada en este repositorio:
@@ -218,8 +236,8 @@ Resultados de la última corrida registrada en este repositorio:
 | Conjunto | Resultado |
 |---|---|
 | Tests unitarios | **9/9** |
-| Casos de evaluación | **11/11** |
-| Pruebas de evidencias | **18/18** |
+| Casos de evaluación | **12/12** |
+| Pruebas de evidencias | **20/20** |
 
 Los informes quedan en `evals/resultados/` y `evidencias/` en Markdown (legible) y
 JSON (con las respuestas completas sin recortar).

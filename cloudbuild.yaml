@@ -1,0 +1,31 @@
+steps:
+  - id: pruebas
+    name: python:3.13-slim
+    entrypoint: sh
+    args: ["-ec", "pip install -r requirements.txt && python -m unittest discover -s tests"]
+
+  - id: construir
+    name: gcr.io/cloud-builders/docker
+    args: ["build", "-t", "${_IMAGE}:$COMMIT_SHA", "."]
+
+  - id: publicar
+    name: gcr.io/cloud-builders/docker
+    args: ["push", "${_IMAGE}:$COMMIT_SHA"]
+
+  - id: desplegar
+    name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        image="${_IMAGE}:$COMMIT_SHA"
+        for service in cripto-especialista agente-cripto-uai; do
+          gcloud run services update "$$service" --image="$$image"             --project="$PROJECT_ID" --region=southamerica-west1 --quiet
+        done
+
+substitutions:
+  _IMAGE: southamerica-west1-docker.pkg.dev/animated-spider-434900-a4/cloud-run-source-deploy/asistente-cripto
+
+logsBucket: gs://201930158969-southamerica-west1-cloudbuild-logs
+options:
+  logging: GCS_ONLY

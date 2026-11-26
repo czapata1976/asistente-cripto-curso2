@@ -11,7 +11,7 @@ cloud_run:
   stage: deploy
   image: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_FROM_GITLAB == "1"'
   resource_group: cripto-production
   environment: production
   id_tokens:

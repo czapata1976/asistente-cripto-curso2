@@ -1,162 +1,339 @@
-# Asistente cripto multiagente
+# Asistente Cripto Multiagente
 
-Asistente educativo en español para principiantes. Calcula ganancias y pérdidas,
-explica conceptos desde la guía del curso y consulta precios mediante CoinGecko MCP.
+Sistema multiagente desplegable para **aprender criptomonedas desde cero**: enruta
+cada solicitud al flujo adecuado, ejecuta trabajo real con herramientas, delega
+en dos especialistas distintos y deja un registro auditable de cada ejecución.
 
-- **Agente principal** (`main.py`, `servidor.py`). Clasifica la solicitud, ejecuta el
-  ciclo ReAct para cálculos y pasa la respuesta por un juez. La API es de solo lectura.
-- **Especialista cripto** (`especialista.py`). Corre en otro proceso, expone A2A
-  por HTTP con un grafo LangGraph y recupera fragmentos de la guía desde Supabase con pgvector.
-  Devuelve una respuesta con fuentes o indica que faltan evidencias.
+Tarea final del Curso 2. Este repositorio parte del asistente cripto del curso y
+lo extiende con las piezas que faltaban para cumplir la pauta completa.
 
-```text
-POST /consulta → router del agente principal
-                  ├─ cálculo → herramientas ReAct
-                  ├─ conceptos → A2A → especialista → guía en Supabase
-                  ├─ precio → CoinGecko MCP
-                  └─ conversación
-                → juez → respuesta y trazas
+---
+
+## 1. Qué resuelve y para quién
+
+**Usuarios.** Personas que están aprendiendo sobre criptoactivos y necesitan
+resolver dudas concretas sin recibir consejos de inversión: calcular cuánto
+ganaron o perdieron, entender un concepto del manual, saber el precio de mercado
+hoy, o armar un plan de aportes periódicos de práctica.
+
+**Qué no hace.** No da recomendaciones de inversión, no opera con dinero real, no
+registra compras reales y no inventa datos cuando no tiene evidencia: si el
+manual no cubre la pregunta, lo dice.
+
+**Alcance.** Cinco flujos sobre un corpus cerrado (el manual
+`criptomonedas-desde-cero.md`, 2.631 líneas). El servicio es de **solo lectura**:
+la única acción con efecto, registrar una compra simulada, está deshabilitada en
+la API por diseño.
+
+---
+
+## 2. Arquitectura
+
+```mermaid
+flowchart TD
+    U[Usuario] -->|POST /consulta<br/>Bearer token| R[Router]
+    R -->|charla| C[conversacion]
+    R -->|cálculo o acción| H[herramienta<br/>ciclo ReAct]
+    R -->|concepto| D[delegacion_a2a]
+    R -->|precio| M[mcp]
+    R -->|plan de aportes| P[plan]
+
+    H --> T[(tools locales)]
+    D -->|A2A JSON-RPC| E1[Especialista LangGraph<br/>RAG sobre el manual]
+    M -->|MCP| E2[Servidor MCP CoinGecko]
+    P -->|A2A JSON-RPC| E3[Especialista n8n<br/>plan DCA]
+
+    C --> J[Juez]
+    H --> J
+    D --> J
+    M --> J
+    P --> J
+    J --> RESP[Respuesta]
+    RESP --> REG[(Registro JSONL)]
 ```
 
-## Arranque local
+El **mismo agente** cumple los roles de router y worker: clasifica la solicitud y
+después ejecuta el trabajo del flujo elegido.
 
-Desde esta carpeta, con Python 3.11 o 3.12 y PowerShell:
+| Componente | Archivo | Rol |
+|---|---|---|
+| Grafo | `main.py` | `START → router → rama → juez → END` |
+| Router | `nodes/router.py` | Clasificación con salida estructurada (`Literal` cerrado) |
+| ReAct | `nodes/herramienta.py` | Bucle `bind_tools` con tope `MAX_ITERACIONES = 5` |
+| A2A obligatorio | `nodes/delegacion.py` | Encargo al especialista LangGraph |
+| A2A adicional | `nodes/plan.py` | Encargo al especialista n8n |
+| MCP | `nodes/mcp.py` | Precio en vivo desde CoinGecko |
+| RAG | `nodes/rag.py` | Recuperación con umbral de similitud `0.65` |
+| Juez | `nodes/juez.py` | Filtro determinista + revisión LLM |
+| API | `servidor.py` | `POST /consulta`, `POST /rag`, `GET /registro/{id}`, `/salud` |
+| Especialista 1 | `servidor_especialista.py` | LangGraph en el puerto 2024 |
+| Especialista 2 | `n8n/a2a-plan-dca.json` | Workflow n8n con webhook A2A |
+
+---
+
+## 3. Los flujos
+
+| Solicitud de ejemplo | Ruta | Trabajo que ejecuta | Resultado esperado |
+|---|---|---|---|
+| «Compré 0,5 BTC a USD 40000 y hoy vale USD 50000. ¿Cuánto gané?» | `herramienta` | ReAct: llama `calcular_ganancia`, recibe la observación y responde | Ganancia USD 5.000,00 (+25,00%) |
+| «¿Cuántos pesos chilenos son 100 dólares?» | `herramienta` | ReAct: `convertir_a_pesos` con tasa fija declarada | 95.000 CLP |
+| «Registra una compra simulada de 1 BTC a 40000 USD» | `herramienta` | Detecta la acción de escritura y **la bloquea** | Mensaje de acción no autorizada; portafolio intacto |
+| «¿Qué es una billetera de criptomonedas?» | `rag` | A2A al especialista LangGraph, que recupera del manual | Respuesta con fuentes y similitud |
+| «¿Cuál es la receta del pastel de choclo?» | `rag` o `conversacion` | Sin evidencia suficiente: no llama al generador | «No tengo esa información en el material disponible» |
+| «¿Cuánto vale bitcoin hoy?» | `mcp` | Decide criptos, llama al MCP de CoinGecko, redacta con el dato | Precio real, sin inventar |
+| «Quiero comprar 50 USD de bitcoin cada semana durante 12 semanas» | `plan` | A2A al especialista n8n, que calcula el plan | Tabla de 12 compras y total USD 600,00 |
+| «Hola, ¿qué puedes hacer?» | `conversacion` | Charla con historial | Presentación del asistente |
+
+Cada respuesta incluye `ruta`, `traza`, `solicitud_id` y la evidencia del flujo
+(`herramientas`, `mcp`, `fuentes`, `delegacion`, `delegacion_n8n`).
+
+---
+
+## 4. Entorno y ejecución local
+
+Probado con **Python 3.12** en Windows. La versión 3.14 no sirve: algunas
+dependencias fijadas no tienen wheel para ella.
 
 ```powershell
-python -m venv .venv
+cd asistente-cripto
+py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
 Copy-Item .env.example .env
 ```
 
-Completa `GOOGLE_API_KEY`, `GOOGLE_MODEL`, `SUPABASE_DB_URL` y
-`CRIPTO_API_TOKEN` en el archivo local. Usa la URI del pooler de Supabase
-en modo transacción con TLS. Aplica la migración de `supabase/migrations/`
-antes de cargar la guía. Coloca el PDF `Criptoactivos_Basico.pdf` en la
-carpeta padre o ajusta la ruta del comando al archivo que tengas. Desde la
-raíz del repositorio, ejecuta:
+Completa `GOOGLE_API_KEY` en `.env` (gratis en
+<https://aistudio.google.com/apikey>). Genera también `CRIPTO_API_TOKEN`,
+`WEB_USER_PASSWORD`, `WEB_ADMIN_PASSWORD` y `WEB_SESSION_SECRET` con valores
+aleatorios, por ejemplo:
 
 ```powershell
-python cargar_guia_supabase.py "..\Criptoactivos_Basico.pdf"
+python -c "import secrets; print(secrets.token_urlsafe(32))"
 ```
 
-La carga envía los fragmentos a Gemini para generar los embeddings y guarda
-el texto, el archivo, la página y los vectores en `cripto.fragmentos`.
-
-La carga inicial del proyecto `agente-cripto` indexó **170 fragmentos de
-65 páginas** con `gemini-embedding-001` (3.072 dimensiones). Para reproducir
-la prueba, inicia el especialista A2A y el chat, ingresa como `usuario` y
-pregunta «¿Qué es una stablecoin y cómo mantiene su paridad?».
-En **Ver ejecución**, comprueba que la ruta sea `rag`, que la delegación
-tenga un ID de tarea y que la respuesta muestre citas del PDF. La prueba
-local recuperó las páginas 36, 40 y 41. El detalle muestra extractos y
-puntuaciones de similitud.
-
-`MCP_URL` configura CoinGecko. `ESPECIALISTA_A2A_URL` apunta al servidor LangGraph.
-`ESPECIALISTA_API_TOKEN` se configura si ese servidor requiere clave.
-
-Abre dos terminales con el entorno activado y ejecuta:
+### Índice del manual
 
 ```powershell
-# Terminal 1. Especialista A2A, puerto 2024.
-$env:PYTHONIOENCODING = 'utf-8'
+python cargar_guia.py --revisar   # cuenta fragmentos sin llamar a Gemini
+python cargar_guia.py             # genera embeddings e indexa (386 fragmentos)
+```
+
+El corpus por defecto es `criptomonedas-desde-cero.md`, versionado en el
+repositorio. También acepta un PDF: `python cargar_guia.py ruta/manual.pdf`.
+
+### Levantar los servicios
+
+Tres terminales con el entorno activado:
+
+```powershell
+# 1. Especialista LangGraph (A2A obligatorio), puerto 2024
 python -m uvicorn servidor_especialista:app --host 127.0.0.1 --port 2024
-```
 
-```powershell
-# Terminal 2. API del agente principal, puerto 8000.
+# 2. Especialista n8n (A2A adicional), puerto 5678
+npx --yes n8n import:workflow --input=n8n/a2a-plan-dca.json
+npx n8n start
+
+# 3. Agente principal, puerto 8000
 python -m uvicorn servidor:app --host 127.0.0.1 --port 8000
 ```
 
-También puedes ejecutar `python main.py` para usar la consola original. La consola
-conserva el historial de la sesión y permite escribir en el portafolio simulado local.
-
-## Pruebas de demostración
-
-En otra terminal, desde esta carpeta:
+Abre <http://127.0.0.1:8000/app> para el chat web, o usa la API:
 
 ```powershell
-$env:CRIPTO_API_TOKEN = Read-Host 'Token de prueba'
-function Consultar-Cripto($mensaje) {
-    $body = @{ mensaje = $mensaje } | ConvertTo-Json -Compress
-    Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:8000/consulta' `
-        -Headers @{ Authorization = "Bearer $env:CRIPTO_API_TOKEN" } `
-        -ContentType 'application/json; charset=utf-8' `
-        -Body ([Text.Encoding]::UTF8.GetBytes($body)) | ConvertTo-Json -Depth 10
-}
-
-Consultar-Cripto 'Compré 0,5 BTC a USD 40000 y hoy cada BTC vale USD 50000. ¿Cuánto gané?'
-Consultar-Cripto '¿Qué es una billetera de criptomonedas?'
-Consultar-Cripto 'Registra una compra simulada de 1 BTC a 40000 USD.'
+$token = (Select-String -Path .env -Pattern '^CRIPTO_API_TOKEN=(.+)$').Matches.Groups[1].Value
+Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:8000/consulta' `
+  -Headers @{ Authorization = "Bearer $token" } -ContentType 'application/json' `
+  -Body '{"mensaje":"¿Qué es una stablecoin?"}' | ConvertTo-Json -Depth 8
 ```
 
-| Prueba | Evidencia esperada |
+> n8n es **opcional**. Si `N8N_WEBHOOK_URL` está vacío, la rama `plan` responde
+> con un mensaje controlado y el resto del agente funciona igual.
+
+### Base de datos opcional (pgvector)
+
+El backend por defecto es SQLite y no necesita servidor de base de datos. Para usar
+Postgres con pgvector hay un `docker-compose.yml` listo:
+
+```powershell
+docker compose up -d
+# en .env: RAG_BACKEND=postgres y SUPABASE_DB_URL=postgresql://cripto:cripto@127.0.0.1:5433/cripto
+python cargar_guia.py
+```
+
+---
+
+## 5. Configuración
+
+Todas las variables se leen en `config.py`. Los valores secretos **nunca** están
+en el repositorio: `.env` está en `.gitignore`.
+
+| Variable | Función |
 |---|---|
-| Cálculo | Ruta `herramienta`, observación de USD 5000 de ganancia y decisión de terminar en `herramientas`. |
-| Concepto | Ruta `rag`, encargo, ID de tarea y respuesta del especialista en `delegacion`. La respuesta final usa ese resultado y conserva las fuentes en `fuentes`. |
-| Acción bloqueada | La compra simulada desde HTTP se rechaza. El registro local queda intacto. |
-| Autenticación | Repite el POST con un token incorrecto. La API devuelve HTTP 401. |
-| Fallo | Detén el especialista y repite la pregunta educativa. La traza muestra `fallo_a2a` y el principal indica que no pudo consultarlo. |
-| Registro | Busca el `solicitud_id` de la respuesta en la terminal del principal para ver ruta, estado y traza. |
+| `GOOGLE_API_KEY` | Credencial de Gemini. Obligatoria. |
+| `GOOGLE_MODEL` | Identificador del modelo de chat. |
+| `GEMINI_EMBEDDING_MODEL` | Modelo de embeddings del RAG. |
+| `CRIPTO_API_TOKEN` | Clave Bearer de `POST /consulta` y `POST /rag`. |
+| `ESPECIALISTA_A2A_URL` | URL del especialista LangGraph. |
+| `ESPECIALISTA_API_TOKEN` | Clave opcional para ese especialista. |
+| `ESPECIALISTA_CLOUD_RUN_IAM` | `1` usa identidad IAM entre servicios de Cloud Run. |
+| `N8N_WEBHOOK_URL` | Webhook del workflow A2A de n8n. Vacío lo deshabilita. |
+| `MCP_URL` | Servidor MCP de CoinGecko. |
+| `RAG_BACKEND` | `sqlite` (local) o `postgres` (pgvector). |
+| `RAG_CORPUS` | Documento a indexar. |
+| `RAG_SQLITE_PATH` | Archivo del índice local. |
+| `SUPABASE_DB_URL` | Cadena de conexión, solo con `RAG_BACKEND=postgres`. |
+| `REGISTRO_PATH` | Archivo JSONL del registro de ejecuciones. |
+| `WEB_USER_PASSWORD` / `WEB_ADMIN_PASSWORD` | Contraseñas del chat web (deben ser distintas). |
+| `WEB_SESSION_SECRET` | Firma de las cookies de sesión. |
+| `WEB_SECURE_COOKIE` | `1` fuerza cookies `Secure` detrás de HTTPS. |
+| `WEB_HISTORY_POSTGRES` | `1` guarda el historial en Postgres en vez de SQLite. |
+| `WEB_HISTORY_DB` | Ruta del SQLite de historial. |
+| `DEBUG` | `1` activa trazas de depuración. |
 
-## Despliegue desde GitLab
+---
 
-`.gitlab-ci.yml` ejecuta pruebas con cada push. Un push a la rama por defecto
-que pase las pruebas construye una imagen con Cloud Build y la publica en Artifact Registry. Luego despliega
-`cripto-especialista` (privado con IAM) y `agente-cripto-uai` (HTTPS con login de la app).
+## 6. Datos de ejemplo
 
-Cloud Build, los buckets de fuentes y logs de la compilación, Artifact Registry
-y los dos servicios usan `GCP_REGION`. En el proyecto actual, configura
-`GCP_REGION=southamerica-west1`. Para compilar manualmente sin usar el endpoint
-global, ejecuta desde la raíz del repositorio:
+- **Consultas de prueba:** `evals/casos.jsonl` (11 casos con resultado esperado).
+- **Corpus autorizado:** `criptomonedas-desde-cero.md`, material del curso,
+  versionado en el repositorio.
+- **Portafolio simulado:** `datos/portafolio.json`, se crea solo si se ejecuta la
+  acción de escritura (deshabilitada en la API).
+- **Conversaciones:** `datos/historial_web.sqlite3`, generado por el chat web.
+
+---
+
+## 7. Pruebas y evidencias
+
+### 7.1 Todo lo automatizable, en tres comandos
 
 ```powershell
-$commit = git rev-parse --short HEAD
-$image = "southamerica-west1-docker.pkg.dev/agente-bryhan-uai/cloud-run-source-deploy/asistente-cripto:$commit"
-gcloud builds submit --project=agente-bryhan-uai --region=southamerica-west1 --default-buckets-behavior=regional-user-owned-bucket "--tag=$image"
+python -m unittest discover -s tests          # 9 pruebas unitarias
+python -m evals.ejecutar --sin-dependencias   # 11 casos del agente
+python evidencias/pruebas_base.py             # 18 pruebas de la base
 ```
 
+Resultados de la última corrida registrada en este repositorio:
 
-Configuración inicial:
+| Conjunto | Resultado |
+|---|---|
+| Tests unitarios | **9/9** |
+| Casos de evaluación | **11/11** |
+| Pruebas de evidencias | **18/18** |
 
-1. Habilita Cloud Build, Artifact Registry, Cloud Run y Secret Manager en GCP.
-   Crea el repositorio Docker en la región elegida. Da al ejecutor de Cloud Build
-   acceso de escritura al repositorio y a los buckets regionales de fuentes y logs.
-2. Configura [Workload Identity Federation](https://docs.gitlab.com/ci/cloud_services/google_cloud/)
-   para el proyecto GitLab y restringe el proveedor a esta rama y repositorio.
-   La identidad de despliegue debe poder ejecutar builds, desplegar servicios,
-   cambiar su IAM y actuar como las cuentas de ejecución.
-3. Configura en GitLab las variables `GCP_PROJECT_ID`, `GCP_REGION`,
-   `GCP_ARTIFACT_REPOSITORY`, `GCP_WIF_AUDIENCE`, `GCP_WIF_PROVIDER`,
-   `GCP_DEPLOY_SERVICE_ACCOUNT`, `GCP_CHAT_SERVICE_ACCOUNT` y
-   `GCP_A2A_SERVICE_ACCOUNT`. El proveedor usa su nombre de recurso completo
-   con el número de proyecto y las cuentas usan su correo de servicio.
-4. Crea los secretos `cripto-gemini`, `cripto-supabase`, `cripto-api-token`,
-   `cripto-web-user`, `cripto-web-admin` y `cripto-web-session`.
-   Otorga acceso por secreto a la cuenta de cada servicio según el pipeline.
-5. Aplica las migraciones de Supabase y carga el PDF una vez. Haz push a
-   `main` y abre `/app` en la URL que entrega Cloud Run. Prueba una pregunta
-   educativa y comprueba la delegación y las citas en **Ver ejecución**.
+Los informes quedan en `evals/resultados/` y `evidencias/` en Markdown (legible) y
+JSON (con las respuestas completas sin recortar).
 
-## Chat web
+### 7.2 Cómo se demuestra cada criterio de la base
 
-Configura dos contraseñas distintas en el archivo local `.env` con
-`WEB_USER_PASSWORD` y `WEB_ADMIN_PASSWORD`. Usa `WEB_SESSION_SECRET` con
-un valor aleatorio privado para conservar las sesiones entre reinicios
-y compartir la firma entre procesos del mismo servicio. Reinicia el
-servidor y abre [el chat local](http://127.0.0.1:8000/app).
+| Criterio | Cómo verlo |
+|---|---|
+| **Enrutamiento** | Los dos primeros casos de `evidencias/pruebas_base.py`: la misma API responde por `herramienta` y por `rag`, con trabajo distinto en cada una. |
+| **Ciclo ReAct** | En la respuesta de la consulta de ganancia, mira `herramientas`: aparece la llamada `tool=calcular_ganancia args=… -> observación`, y luego la parada «respuesta final del LLM». El tope duro es `MAX_ITERACIONES = 5`. |
+| **Delegación A2A** | En la consulta de concepto, mira `delegacion`: trae `agente`, `encargo`, `tarea_id` y `estado`. Las `fuentes` de la respuesta salen de ese artefacto. |
+| **Seguridad** | `POST /consulta` sin cabecera o con token inválido devuelve **401**. El bloqueo de escritura se demuestra en `tests/test_seguridad.py`, que fuerza el `tool_call` con un modelo falso: el nodo lo intercepta antes de ejecutar y la herramienta ni siquiera se le ofrece al modelo. |
+| **Resiliencia** | La última prueba de `pruebas_base.py` apunta el cliente A2A a un puerto cerrado: el flujo devuelve `fallo_a2a` con un mensaje claro, sin inventar la respuesta ni reintentar en bucle. Hay además un test para el límite de cuota de Gemini (`ModelRateLimitError`), que cae a un cálculo local determinista. |
+| **Despliegue** | Cada respuesta trae `solicitud_id`; `GET /registro/{solicitud_id}` devuelve la línea del registro con ruta, estado, traza y latencia. |
 
-- **usuario** puede crear y retomar conversaciones del mismo navegador.
-- **admin** puede ver, retomar y eliminar las conversaciones guardadas.
-- **Ver ejecución** muestra la ruta, el ciclo ReAct o el intercambio A2A,
-  las fuentes y el ID de la solicitud.
+### 7.3 Ampliaciones y su prueba
 
-El historial local usa SQLite. Para guardar conversaciones en Supabase,
-configura `WEB_HISTORY_POSTGRES=1` y `SUPABASE_DB_URL`. El pipeline ya usa
-este modo para Cloud Run. Los chats previos de SQLite no se importan automáticamente. Usa HTTPS en el servicio desplegado y configura
-`WEB_SECURE_COOKIE=1` si el proxy no informa el esquema a Uvicorn.
-La API `POST /consulta` también sigue disponible mediante su token Bearer.
+| Ampliación | Puntos | Prueba |
+|---|---|---|
+| **RAG documental** | +0,5 | `POST /rag` recupera fragmentos **sin delegar en otro agente** y devuelve `fuentes` y `fragmentos` con su similitud. Una pregunta fuera del corpus devuelve `sin_evidencia: true`. |
+| **MCP** | +0,5 | «¿Cuánto vale bitcoin hoy?» → ruta `mcp`; el campo `mcp` muestra la decisión y la llamada real a CoinGecko. |
+| **Memoria persistente** | +0,5 | Dos `POST /consulta` con el mismo `session_id`: el segundo turno recuerda el nombre dado en el primero. También por el chat web. |
+| **Evaluación versionada** | +0,5 | `evals/casos.jsonl` + `python -m evals.ejecutar`. |
+| **Observabilidad** | +0,5 | `python scripts/metricas.py --comparar antes.jsonl despues.jsonl`. Ver 7.4. |
+| **A2A con n8n** | +1,0 | «Quiero comprar 50 USD de bitcoin cada semana durante 12 semanas» → ruta `plan`; el campo `delegacion_n8n` trae `encargo`, `tarea_id`, `estado` y el artefacto calculado en n8n. |
 
-En el despliegue actual, los roles del chat usan las mismas contraseñas
-que en agente-bryhan. Cloud Run las lee de los secretos cripto-web-user
-y cripto-web-admin de Secret Manager.
+### 7.4 Comparación antes/después (observabilidad)
+
+Mismo conjunto de 11 entradas, ejecutado con y sin el juez LLM:
+
+```powershell
+python -m evals.ejecutar --sin-juez --sin-dependencias
+Move-Item datos/registros/ejecuciones.jsonl datos/registros/antes.jsonl
+python -m evals.ejecutar --sin-dependencias
+Move-Item datos/registros/ejecuciones.jsonl datos/registros/despues.jsonl
+python scripts/metricas.py --comparar datos/registros/antes.jsonl datos/registros/despues.jsonl
+```
+
+Resultado medido:
+
+| Métrica | Sin juez | Con juez | Δ |
+|---|---|---|---|
+| Casos aprobados | 11/11 | 11/11 | 0 |
+| p50 de latencia | 10.100 ms | 17.855 ms | +77% |
+| Tokens de entrada | 9.640 | 15.581 | +62% |
+| Llamadas al modelo por consulta | 2,09 | 3,09 | +1,00 |
+
+**Conclusión honesta:** el juez añade exactamente una llamada al modelo por
+consulta y casi duplica la latencia, sin mejorar la tasa de aprobación en este
+conjunto. Se mantiene porque el filtro determinista de secretos cubre lo
+anticipado y el juez cubre lo que no lo está; pero la medición deja claro que, si
+el costo importa, desactivarlo es una decisión defendible con estos números en la
+mano.
+
+---
+
+## 8. Despliegue
+
+El `Dockerfile` sirve cualquier plataforma que ejecute contenedores. El servicio
+necesita los dos especialistas accesibles: el de LangGraph y, si se usa la
+ampliación, el de n8n.
+
+```powershell
+docker build -t asistente-cripto .
+docker run -p 8080:8080 --env-file .env asistente-cripto
+```
+
+Variables mínimas en el entorno del despliegue: `GOOGLE_API_KEY`,
+`CRIPTO_API_TOKEN`, `ESPECIALISTA_A2A_URL`, `RAG_BACKEND`, `MCP_URL` y las del chat
+web. En Cloud Run, `.gitlab-ci.yml` muestra el despliegue con Secret Manager y
+Workload Identity Federation.
+
+**Credenciales de prueba:** se entregan por correo a los profesores. No están en
+este repositorio, ni en la documentación, ni en las evidencias.
+
+---
+
+## 9. Estructura del repositorio
+
+```text
+.
+├── main.py                  grafo del agente
+├── servidor.py              API HTTP + registro
+├── servidor_especialista.py especialista A2A (LangGraph)
+├── especialista.py          grafo del especialista
+├── config.py                única lectura de variables de entorno
+├── llm.py                   creación diferida del modelo
+├── cargar_guia.py           indexación del corpus (PDF o Markdown)
+├── nodes/                   un archivo por nodo del grafo
+├── prompts/                 prompts por nodo
+├── services/                a2a, mcp, rag (sqlite/postgres), memoria, registro, telemetría
+├── tools/                   herramientas del ciclo ReAct
+├── web/                     chat y login
+├── tests/                   pruebas unitarias
+├── evals/                   casos versionados + runner
+├── evidencias/              pruebas de la base + informes
+├── scripts/metricas.py      métricas y comparación
+├── n8n/                     workflow A2A exportado
+└── supabase/migrations/     esquema para el backend pgvector
+```
+
+---
+
+## 10. Limitaciones conocidas
+
+- **Depende de Gemini.** Sin `GOOGLE_API_KEY` ningún flujo con modelo funciona;
+  solo el cálculo local de respaldo.
+- **El router es un LLM.** Puede clasificar de forma distinta entre corridas; los
+  casos de evaluación usan expectativas tolerantes donde el límite es ambiguo.
+- **El RAG local es fuerza bruta.** Compara el vector de la consulta contra todos
+  los fragmentos en Python. Con 386 fragmentos es instantáneo; con millones haría
+  falta pgvector o un índice ANN.
+- **El juez LLM no está justificado por las métricas** en el conjunto actual (ver
+  7.4). Es una decisión de defensa en profundidad, no de calidad medida.
+- **La acción de escritura solo existe en la consola local**, no en la API.
+- **n8n no corre en el despliegue de Render** por defecto: es un servicio aparte y
+  hay que levantarlo donde el agente principal pueda alcanzarlo.

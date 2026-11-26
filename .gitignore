@@ -12,4 +12,7 @@ __pycache__/
 
 .langgraph_api/
 datos/historial_web.sqlite3*
+# Índice del RAG y registro de ejecuciones: se regeneran con cargar_guia.py
+datos/indice_rag.sqlite3*
+datos/registros/
 supabase/.temp/

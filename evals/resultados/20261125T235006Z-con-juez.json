@@ -1,0 +1,25 @@
+[
+  {
+    "id": "calc-ganancia",
+    "veredicto": "PASÓ",
+    "detalle": "herramienta",
+    "fallos": [],
+    "payload": {
+      "solicitud_id": "c50867fe-58eb-4439-8862-f42a33fb260e",
+      "respuesta": "Ganaste **USD 5.000** (un **+25,00%**). \n\nAquí tienes el detalle del cálculo:\n- **Inversión inicial:** USD 20.000 (0,5 BTC × USD 40.000)\n- **Valor actual:** USD 25.000 (0,5 BTC × USD 50.000)\n- **Ganancia total:** USD 5.000",
+      "ruta": "herramienta",
+      "traza": [
+        "router",
+        "herramienta",
+        "juez"
+      ],
+      "herramientas": [
+        "tool=calcular_ganancia args={'precio_actual': 50000, 'cantidad': 0.5, 'precio_compra': 40000} -> Invertido: 20,000.00 | Valor actual: 25,000.00 | Ganancia: 5,000.00 (+25.00%).",
+        "respuesta final del LLM (sin más herramientas)"
+      ],
+      "mcp": [],
+      "fuentes": [],
+      "delegacion": null
+    }
+  }
+]

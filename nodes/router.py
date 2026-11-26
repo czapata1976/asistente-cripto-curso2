@@ -14,7 +14,7 @@ class Decision(BaseModel):
     """Salida estructurada y cerrada del router."""
 
     # TODO (adaptar): estas etiquetas deben coincidir con state.Rama y el grafo.
-    branch: Literal["conversacion", "herramienta", "rag", "mcp"] = Field(
+    branch: Literal["conversacion", "herramienta", "rag", "mcp", "plan"] = Field(
         description="Rama que debe atender el mensaje del usuario."
     )
 

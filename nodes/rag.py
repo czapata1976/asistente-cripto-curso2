@@ -8,7 +8,7 @@ usar RAG solo cuando de verdad hay evidencia en el corpus.
 from llm import get_llm
 from prompts.rag_prompt import RAG_SYSTEM_PROMPT, RAG_USER_PROMPT
 from services.mensajes import normalizar
-from services import rag_supabase
+from services import rag as recuperador
 from state import AgentState
 
 
@@ -21,7 +21,7 @@ def rag(state: AgentState) -> dict:
     """Recupera fragmentos, aplica umbral y responde citando fuentes."""
     pregunta = state.get("user_input", "")
     try:
-        fragmentos = rag_supabase.buscar(pregunta, k=3)
+        fragmentos = recuperador.buscar(pregunta, k=3)
     except Exception:
         return {
             "borrador": (
@@ -34,15 +34,20 @@ def rag(state: AgentState) -> dict:
 
     if not fragmentos or fragmentos[0]["parecido"] < UMBRAL:
         # Sin evidencia suficiente: no se llama al LLM.
+        # La bandera `rag_sin_evidencia` debe quedar marcada aquí también, no
+        # solo cuando el LLM responde "no tengo esa información". Si falta,
+        # quien consuma el nodo (el especialista o /rag) solo puede deducir el
+        # estado por `fuentes` vacías, que es un indicio y no un hecho.
         mejor = fragmentos[0]["parecido"] if fragmentos else None
         return {
             "borrador": SIN_INFO,
             "fuentes_rag": [],
+            "rag_sin_evidencia": True,
             "pasos_react": [f"sin evidencia (mejor parecido = {mejor})"],
             "trace": ["rag"],
         }
 
-    contexto = rag_supabase.formatear(fragmentos)
+    contexto = recuperador.formatear(fragmentos)
     fuentes = list(dict.fromkeys(f["fuente"] for f in fragmentos))
     mensajes = [
         ("system", RAG_SYSTEM_PROMPT),

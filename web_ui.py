@@ -161,7 +161,9 @@ async def chat(request: Request) -> JSONResponse:
 
     mensajes = json.loads(anterior) if anterior else []
     historial = [{"rol": mensaje["role"], "texto": mensaje["text"]} for mensaje in mensajes]
-    resultado, status = await request.app.state.ejecutar_consulta(body.message.strip(), historial)
+    resultado, status = await request.app.state.ejecutar_consulta(
+        body.message.strip(), historial, origen="web"
+    )
     if status != 200:
         return JSONResponse(resultado, status_code=status, headers={"Cache-Control": "no-store"})
 

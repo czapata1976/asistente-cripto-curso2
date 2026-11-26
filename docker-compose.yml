@@ -1,0 +1,35 @@
+# Base de datos para el backend de RAG con pgvector.
+#
+# Solo es necesaria si usas RAG_BACKEND=postgres. El backend por defecto
+# (RAG_BACKEND=sqlite) funciona con un archivo local y no necesita Docker.
+#
+#   docker compose up -d
+#   # en el .env:  SUPABASE_DB_URL=postgresql://cripto:cripto@127.0.0.1:5433/cripto
+#   #              RAG_BACKEND=postgres
+#   python cargar_guia.py
+#
+# Las migraciones de ./supabase/migrations se aplican solas la primera vez
+# que se crea el volumen. Si cambias un .sql, borra el volumen:
+#   docker compose down -v
+
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    container_name: cripto-db
+    environment:
+      POSTGRES_USER: cripto
+      POSTGRES_PASSWORD: cripto
+      POSTGRES_DB: cripto
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./supabase/migrations:/docker-entrypoint-initdb.d:ro
+      - cripto-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U cripto -d cripto" ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  cripto-pgdata:

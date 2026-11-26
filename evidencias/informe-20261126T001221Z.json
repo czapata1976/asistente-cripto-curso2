@@ -1,0 +1,488 @@
+[
+  {
+    "criterio": "Despliegue",
+    "prueba": "El servicio responde en /salud",
+    "resultado": "PASÓ",
+    "observado": "modelo=gemini-3.6-flash rag=sqlite",
+    "evidencia": {
+      "servicio": "asistente-cripto",
+      "estado": "operativo",
+      "modelo": "gemini-3.6-flash",
+      "rag_backend": "sqlite",
+      "token_configurado": true
+    }
+  },
+  {
+    "criterio": "Seguridad",
+    "prueba": "Solicitud sin credencial se rechaza",
+    "resultado": "PASÓ",
+    "observado": "HTTP 401 · Acceso no autorizado",
+    "evidencia": {
+      "status": 401,
+      "cuerpo": {
+        "error": "Acceso no autorizado"
+      }
+    }
+  },
+  {
+    "criterio": "Seguridad",
+    "prueba": "Solicitud con token inválido se rechaza",
+    "resultado": "PASÓ",
+    "observado": "HTTP 401 · Acceso no autorizado",
+    "evidencia": {
+      "status": 401,
+      "cuerpo": {
+        "error": "Acceso no autorizado"
+      }
+    }
+  },
+  {
+    "criterio": "Enrutamiento",
+    "prueba": "Dos solicitudes activan flujos distintos",
+    "resultado": "PASÓ",
+    "observado": "«Compré 0,5 BTC a USD 40000 y hoy cada …» → herramienta · «¿Qué es una billetera de criptomonedas…» → rag",
+    "evidencia": {
+      "calculo": {
+        "solicitud_id": "c90ddc7d-f47b-4e69-978e-45cf3ed42106",
+        "respuesta": "Ganaste **USD 5.000** (un +25,00% de rendimiento).\n\nAquí tienes el detalle de la operación:\n- **Monto invertido:** USD 20.000 (0,5 BTC × USD 40.000)\n- **Valor actual:** USD 25.000 (0,5 BTC × USD 50.000)\n- **Ganancia total:** USD 5.000",
+        "ruta": "herramienta",
+        "traza": [
+          "router",
+          "herramienta",
+          "juez"
+        ],
+        "herramientas": [
+          "tool=calcular_ganancia args={'cantidad': 0.5, 'precio_compra': 40000, 'precio_actual': 50000} -> Invertido: 20,000.00 | Valor actual: 25,000.00 | Ganancia: 5,000.00 (+25.00%).",
+          "respuesta final del LLM (sin más herramientas)"
+        ],
+        "mcp": [],
+        "fuentes": [],
+        "delegacion": null
+      },
+      "concepto": {
+        "solicitud_id": "020965f0-e137-4208-8c73-96ec277d22e0",
+        "respuesta": "Una billetera de criptomonedas (o *wallet*) no guarda realmente tus criptomonedas, ya que estas siempre permanecen en la blockchain. \n\nLo que hace la billetera es almacenar y gestionar tus **claves privadas**, que son las llaves digitales que te dan acceso a tus fondos y te permiten autorizar transacciones. Además, lee la información de la blockchain para mostrarte tu saldo disponible.\n\nEn resumen: una billetera guarda tus claves de acceso, no las monedas.\n\nFuentes consultadas: criptomonedas-desde-cero.md, §138 — 12.1 Qué es realmente una billetera; criptomonedas-desde-cero.md, §152 — 12.8 Ideas clave del capítulo; criptomonedas-desde-cero.md, §149 — 12.5 Cómo elegir: árbol de decisión simple",
+        "ruta": "rag",
+        "traza": [
+          "router",
+          "delegacion_a2a",
+          "respondido",
+          "juez"
+        ],
+        "herramientas": [],
+        "mcp": [],
+        "fuentes": [
+          "criptomonedas-desde-cero.md, §138 — 12.1 Qué es realmente una billetera",
+          "criptomonedas-desde-cero.md, §152 — 12.8 Ideas clave del capítulo",
+          "criptomonedas-desde-cero.md, §149 — 12.5 Cómo elegir: árbol de decisión simple"
+        ],
+        "delegacion": {
+          "agente": "especialista_cripto",
+          "encargo": "¿Qué es una billetera de criptomonedas?",
+          "respuesta": "Una billetera cripto no guarda criptomonedas, ya que las monedas siempre están en la blockchain [criptomonedas-desde-cero.md, §138 — 12.1 Qué es realmente una billetera]. \n\nLo que realmente hace la billetera es guardar (o darte acceso a) las claves privadas que permiten mover las criptomonedas, y mostrarte el saldo leyendo la blockchain [criptomonedas-desde-cero.md, §138 — 12.1 Qué es realmente una billetera]. En resumen, una billetera guarda claves, no monedas [criptomonedas-desde-cero.md, §152 — 12.8 Ideas clave del capítulo].",
+          "fuentes": [
+            "criptomonedas-desde-cero.md, §138 — 12.1 Qué es realmente una billetera",
+            "criptomonedas-desde-cero.md, §152 — 12.8 Ideas clave del capítulo",
+            "criptomonedas-desde-cero.md, §149 — 12.5 Cómo elegir: árbol de decisión simple"
+          ],
+          "fragmentos": [
+            {
+              "fuente": "criptomonedas-desde-cero.md, §138 — 12.1 Qué es realmente una billetera",
+              "extracto": "Una billetera cripto **no guarda criptomonedas**. Las monedas siempre están en la blockchain. La billetera guarda (o te da acceso a) las **claves privadas** que permiten moverlas, y te muestra el saldo leyendo la blockchain. Por eso, si pierdes tu teléfono pero tienes tu frase semilla, no perdiste nada: instalas la bil…",
+              "similitud": 0.769
+            },
+            {
+              "fuente": "criptomonedas-desde-cero.md, §152 — 12.8 Ideas clave del capítulo",
+              "extracto": "- La billetera guarda claves, no monedas. - Custodial = confías en una empresa. No custodial = confías en ti. - Para montos importantes: billetera de hardware comprada en la tienda oficial. - Separa billeteras por propósito. --- # Capítulo 13. La frase semilla: el concepto más importante del manual",
+              "similitud": 0.735
+            },
+            {
+              "fuente": "criptomonedas-desde-cero.md, §149 — 12.5 Cómo elegir: árbol de decisión simple",
+              "extracto": "1. **¿Vas a invertir menos de lo que te dolería perder (por ejemplo, unos cientos de dólares) y solo comprar y mantener?** → Puedes empezar en un exchange regulado y confiable. Activa todas las medidas de seguridad (capítulo 17). 2. **¿Quieres aprender autocustodia con poco riesgo?** → Instala una billetera móvil recon…",
+              "similitud": 0.733
+            }
+          ],
+          "estado": "respondido",
+          "tarea_id": "4789b28b-c17c-47e1-9288-cf5d996d4ae4"
+        }
+      }
+    }
+  },
+  {
+    "criterio": "ReAct",
+    "prueba": "El agente llama una herramienta y recibe el resultado",
+    "resultado": "PASÓ",
+    "observado": "2 pasos: [\"tool=calcular_ganancia args={'cantidad': 0.5, 'precio_compra': 40000, 'precio_actual': 50000} -> Invertido: 20,000.00 | Valor actual: 25,000.00 | Ganancia: 5,000.00 (+25.00%).\"]",
+    "evidencia": {
+      "pasos_react": [
+        "tool=calcular_ganancia args={'cantidad': 0.5, 'precio_compra': 40000, 'precio_actual': 50000} -> Invertido: 20,000.00 | Valor actual: 25,000.00 | Ganancia: 5,000.00 (+25.00%).",
+        "respuesta final del LLM (sin más herramientas)"
+      ]
+    }
+  },
+  {
+    "criterio": "ReAct",
+    "prueba": "Condición de parada explícita en la traza",
+    "resultado": "PASÓ",
+    "observado": "parada por respuesta final del LLM; tope duro MAX_ITERACIONES = 5",
+    "evidencia": {
+      "pasos_react": [
+        "tool=calcular_ganancia args={'cantidad': 0.5, 'precio_compra': 40000, 'precio_actual': 50000} -> Invertido: 20,000.00 | Valor actual: 25,000.00 | Ganancia: 5,000.00 (+25.00%).",
+        "respuesta final del LLM (sin más herramientas)"
+      ]
+    }
+  },
+  {
+    "criterio": "Delegación A2A",
+    "prueba": "El especialista responde el encargo",
+    "resultado": "PASÓ",
+    "observado": "agente=especialista_cripto · tarea=4789b28b-c17c-47e1-9288-cf5d996d4ae4 · estado=respondido",
+    "evidencia": {
+      "delegacion": {
+        "agente": "especialista_cripto",
+        "encargo": "¿Qué es una billetera de criptomonedas?",
+        "respuesta": "Una billetera cripto no guarda criptomonedas, ya que las monedas siempre están en la blockchain [criptomonedas-desde-cero.md, §138 — 12.1 Qué es realmente una billetera]. \n\nLo que realmente hace la billetera es guardar (o darte acceso a) las claves privadas que permiten mover las criptomonedas, y mostrarte el saldo leyendo la blockchain [criptomonedas-desde-cero.md, §138 — 12.1 Qué es realmente una billetera]. En resumen, una billetera guarda claves, no monedas [criptomonedas-desde-cero.md, §152 — 12.8 Ideas clave del capítulo].",
+        "fuentes": [
+          "criptomonedas-desde-cero.md, §138 — 12.1 Qué es realmente una billetera",
+          "criptomonedas-desde-cero.md, §152 — 12.8 Ideas clave del capítulo",
+          "criptomonedas-desde-cero.md, §149 — 12.5 Cómo elegir: árbol de decisión simple"
+        ],
+        "fragmentos": [
+          {
+            "fuente": "criptomonedas-desde-cero.md, §138 — 12.1 Qué es realmente una billetera",
+            "extracto": "Una billetera cripto **no guarda criptomonedas**. Las monedas siempre están en la blockchain. La billetera guarda (o te da acceso a) las **claves privadas** que permiten moverlas, y te muestra el saldo leyendo la blockchain. Por eso, si pierdes tu teléfono pero tienes tu frase semilla, no perdiste nada: instalas la bil…",
+            "similitud": 0.769
+          },
+          {
+            "fuente": "criptomonedas-desde-cero.md, §152 — 12.8 Ideas clave del capítulo",
+            "extracto": "- La billetera guarda claves, no monedas. - Custodial = confías en una empresa. No custodial = confías en ti. - Para montos importantes: billetera de hardware comprada en la tienda oficial. - Separa billeteras por propósito. --- # Capítulo 13. La frase semilla: el concepto más importante del manual",
+            "similitud": 0.735
+          },
+          {
+            "fuente": "criptomonedas-desde-cero.md, §149 — 12.5 Cómo elegir: árbol de decisión simple",
+            "extracto": "1. **¿Vas a invertir menos de lo que te dolería perder (por ejemplo, unos cientos de dólares) y solo comprar y mantener?** → Puedes empezar en un exchange regulado y confiable. Activa todas las medidas de seguridad (capítulo 17). 2. **¿Quieres aprender autocustodia con poco riesgo?** → Instala una billetera móvil recon…",
+            "similitud": 0.733
+          }
+        ],
+        "estado": "respondido",
+        "tarea_id": "4789b28b-c17c-47e1-9288-cf5d996d4ae4"
+      }
+    }
+  },
+  {
+    "criterio": "Delegación A2A",
+    "prueba": "El resultado del especialista se usa en la respuesta",
+    "resultado": "PASÓ",
+    "observado": "fuentes citadas: ['criptomonedas-desde-cero.md, §138 — 12.1 Qué es realmente una billetera', 'criptomonedas-desde-cero.md, §152 — 12.8 Ideas clave del capítulo', 'criptomonedas-desde-cero.md, §149 — 12.5 Cómo elegir: árbol de decisión simple']",
+    "evidencia": {
+      "respuesta": "Una billetera de criptomonedas (o *wallet*) no guarda realmente tus criptomonedas, ya que estas siempre permanecen en la blockchain. \n\nLo que hace la billetera es almacenar y gestionar tus **claves privadas**, que son las llaves digitales que te dan acceso a tus fondos y te permiten autorizar transacciones. Además, lee la información de la blockchain para mostrarte tu saldo disponible.\n\nEn resumen: una billetera guarda tus claves de acceso, no las monedas.\n\nFuentes consultadas: criptomonedas-desde-cero.md, §138 — 12.1 Qué es realmente una billetera; criptomonedas-desde-cero.md, §152 — 12.8 Ideas clave del capítulo; criptomonedas-desde-cero.md, §149 — 12.5 Cómo elegir: árbol de decisión simple",
+      "fuentes": [
+        "criptomonedas-desde-cero.md, §138 — 12.1 Qué es realmente una billetera",
+        "criptomonedas-desde-cero.md, §152 — 12.8 Ideas clave del capítulo",
+        "criptomonedas-desde-cero.md, §149 — 12.5 Cómo elegir: árbol de decisión simple"
+      ]
+    }
+  },
+  {
+    "criterio": "Delegación A2A",
+    "prueba": "El especialista devuelve fragmentos con similitud",
+    "resultado": "PASÓ",
+    "observado": "criptomonedas-desde-cero.md, §138 — 12.1 Qué es realmente una billetera (0.769); criptomonedas-desde-cero.md, §152 — 12.8 Ideas clave del capítulo (0.735); criptomonedas-desde-cero.md, §149 — 12.5 Cómo elegir: árbol de decisión simple (0.733)",
+    "evidencia": {
+      "fragmentos": [
+        {
+          "fuente": "criptomonedas-desde-cero.md, §138 — 12.1 Qué es realmente una billetera",
+          "extracto": "Una billetera cripto **no guarda criptomonedas**. Las monedas siempre están en la blockchain. La billetera guarda (o te da acceso a) las **claves privadas** que permiten moverlas, y te muestra el saldo leyendo la blockchain. Por eso, si pierdes tu teléfono pero tienes tu frase semilla, no perdiste nada: instalas la bil…",
+          "similitud": 0.769
+        },
+        {
+          "fuente": "criptomonedas-desde-cero.md, §152 — 12.8 Ideas clave del capítulo",
+          "extracto": "- La billetera guarda claves, no monedas. - Custodial = confías en una empresa. No custodial = confías en ti. - Para montos importantes: billetera de hardware comprada en la tienda oficial. - Separa billeteras por propósito. --- # Capítulo 13. La frase semilla: el concepto más importante del manual",
+          "similitud": 0.735
+        },
+        {
+          "fuente": "criptomonedas-desde-cero.md, §149 — 12.5 Cómo elegir: árbol de decisión simple",
+          "extracto": "1. **¿Vas a invertir menos de lo que te dolería perder (por ejemplo, unos cientos de dólares) y solo comprar y mantener?** → Puedes empezar en un exchange regulado y confiable. Activa todas las medidas de seguridad (capítulo 17). 2. **¿Quieres aprender autocustodia con poco riesgo?** → Instala una billetera móvil recon…",
+          "similitud": 0.733
+        }
+      ]
+    }
+  },
+  {
+    "criterio": "RAG documental",
+    "prueba": "El agente principal recupera fragmentos sin delegar (POST /rag)",
+    "resultado": "PASÓ",
+    "observado": "3 fragmentos · mejor similitud=0.794",
+    "evidencia": {
+      "pregunta": "¿Qué es una stablecoin y cómo mantiene su paridad?",
+      "respuesta": "Basándome en la información proporcionada en la guía, existen distintos tipos de stablecoins y formas de mantener su paridad:\n\n### ¿Qué es una stablecoin?\n* **Respaldadas por dinero fiat:** Son tokens emitidos por una empresa que recibe dólares, los guarda en bancos o bonos del Tesoro y emite el mismo número de tokens. Si devuelves el token, el emisor te devuelve el dólar [criptomonedas-desde-cero.md, §93 — 1. Respaldadas por dinero fiat (centralizadas)].\n* **Sintéticas / delta-neutral:** Son tokens que se generan combinando criptomonedas con posiciones cortas en derivados [criptomonedas-desde-cero.md, §95 — 3. Sintéticas / delta-neutral].\n\n---\n\n### ¿Cómo mantiene su paridad?\n\n1. **En las respaldadas por dinero fiat:** \n   Mantienen el precio mediante **arbitraje** [criptomonedas-desde-cero.md, §97 — 8.3 La paridad (peg) y cómo se mantiene]:\n   * **Si cotiza a 0,99 USD:** Los arbitrajistas compran el token barato en el mercado y lo canjean con el emisor por 1,00 USD. El aumento de demanda sube el precio [criptomonedas-desde-cero.md, §97 — 8.3 La paridad (peg) y cómo se mantiene].\n   * **Si cotiza a 1,01 USD:** Los arbitrajistas depositan 1 dólar con el emisor, reciben un token nuevo y lo venden en el mercado a 1,01 USD. El aumento de oferta baja el precio [criptomonedas-desde-cero.md, §97 — 8.3 La paridad (peg) y cómo se mantiene].\n   *(Nota: Este mecanismo funciona mientras el mercado confíe en que el emisor efectivamente realiza el canje [criptomonedas-desde-cero.md, §97 — 8.3 La paridad (peg) y cómo se mantiene]).*\n\n2. **En las sintéticas / delta-neutral:** \n   Mantienen la paridad mediante la combinación de cripto (como ETH/BTC en staking) con posiciones cortas en futuros perpetuos [criptomonedas-desde-cero.md, §95 — 3. Sintéticas / delta-neutral].",
+      "fuentes": [
+        "criptomonedas-desde-cero.md, §97 — 8.3 La paridad (peg) y cómo se mantiene",
+        "criptomonedas-desde-cero.md, §93 — 1. Respaldadas por dinero fiat (centralizadas)",
+        "criptomonedas-desde-cero.md, §95 — 3. Sintéticas / delta-neutral"
+      ],
+      "fragmentos": [
+        {
+          "fuente": "criptomonedas-desde-cero.md, §97 — 8.3 La paridad (peg) y cómo se mantiene",
+          "extracto": "Una stablecoin respaldada en fiat mantiene el precio por **arbitraje**: - Si se vende a 0,99, los arbitrajistas la compran y la canjean con el emisor por 1,00. La demanda sube el precio. - Si se vende a 1,01, los arbitrajistas depositan 1 dólar con el emisor, reciben un token nuevo y lo venden a 1,01. La oferta baja el…",
+          "similitud": 0.794
+        },
+        {
+          "fuente": "criptomonedas-desde-cero.md, §93 — 1. Respaldadas por dinero fiat (centralizadas)",
+          "extracto": "Una empresa recibe dólares, los guarda en bancos o bonos del Tesoro, y emite el mismo número de tokens. Si devuelves el token, te devuelve el dólar. - **USDT (Tether):** la más grande y la más usada en mercados emergentes. Históricamente criticada por falta de auditorías completas y transparencia de reservas; publica \"…",
+          "similitud": 0.758
+        },
+        {
+          "fuente": "criptomonedas-desde-cero.md, §95 — 3. Sintéticas / delta-neutral",
+          "extracto": "Mantienen la paridad combinando cripto con posiciones cortas en derivados. - **USDe (Ethena):** usa ETH/BTC en staking más posiciones cortas en futuros perpetuos. Genera rendimiento alto cuando las tasas de financiamiento son positivas. **Riesgos:** si las tasas de financiamiento se vuelven negativas por mucho tiempo, …",
+          "similitud": 0.756
+        }
+      ],
+      "sin_evidencia": false
+    }
+  },
+  {
+    "criterio": "RAG documental",
+    "prueba": "Las fuentes recuperadas se usan en la respuesta",
+    "resultado": "PASÓ",
+    "observado": "fuentes=['criptomonedas-desde-cero.md, §97 — 8.3 La paridad (peg) y cómo se mantiene', 'criptomonedas-desde-cero.md, §93 — 1. Respaldadas por dinero fiat (centralizadas)', 'criptomonedas-desde-cero.md, §95 — 3. Sintéticas / delta-neutral']",
+    "evidencia": {
+      "respuesta": "Basándome en la información proporcionada en la guía, existen distintos tipos de stablecoins y formas de mantener su paridad:\n\n### ¿Qué es una stablecoin?\n* **Respaldadas por dinero fiat:** Son tokens emitidos por una empresa que recibe dólares, los guarda en bancos o bonos del Tesoro y emite el mismo número de tokens. Si devuelves el token, el emisor te devuelve el dólar [criptomonedas-desde-cero.md, §93 — 1. Respaldadas por dinero fiat (centralizadas)].\n* **Sintéticas / delta-neutral:** Son tokens que se generan combinando criptomonedas con posiciones cortas en derivados [criptomonedas-desde-cero.md, §95 — 3. Sintéticas / delta-neutral].\n\n---\n\n### ¿Cómo mantiene su paridad?\n\n1. **En las respaldadas por dinero fiat:** \n   Mantienen el precio mediante **arbitraje** [criptomonedas-desde-cero.md, §97 — 8.3 La paridad (peg) y cómo se mantiene]:\n   * **Si cotiza a 0,99 USD:** Los arbitrajistas compran el token barato en el mercado y lo canjean con el emisor por 1,00 USD. El aumento de demanda sube el precio [criptomonedas-desde-cero.md, §97 — 8.3 La paridad (peg) y cómo se mantiene].\n   * **Si cotiza a 1,01 USD:** Los arbitrajistas depositan 1 dólar con el emisor, reciben un token nuevo y lo venden en el mercado a 1,01 USD. El aumento de oferta baja el precio [criptomonedas-desde-cero.md, §97 — 8.3 La paridad (peg) y cómo se mantiene].\n   *(Nota: Este mecanismo funciona mientras el mercado confíe en que el emisor efectivamente realiza el canje [criptomonedas-desde-cero.md, §97 — 8.3 La paridad (peg) y cómo se mantiene]).*\n\n2. **En las sintéticas / delta-neutral:** \n   Mantienen la paridad mediante la combinación de cripto (como ETH/BTC en staking) con posiciones cortas en futuros perpetuos [criptomonedas-desde-cero.md, §95 — 3. Sintéticas / delta-neutral]."
+    }
+  },
+  {
+    "criterio": "RAG documental",
+    "prueba": "Una pregunta fuera del corpus no inventa una respuesta",
+    "resultado": "PASÓ",
+    "observado": "sin_evidencia=True · respuesta=No tengo esa información en el material disponible.",
+    "evidencia": {
+      "pregunta": "¿Cuál es la mejor receta de pastel de choclo?",
+      "respuesta": "No tengo esa información en el material disponible.",
+      "fuentes": [],
+      "fragmentos": [],
+      "sin_evidencia": true
+    }
+  },
+  {
+    "criterio": "Seguridad",
+    "prueba": "El código intercepta la escritura antes de ejecutarla",
+    "resultado": "PASÓ",
+    "observado": "traza=['herramienta', 'accion_bloqueada'] · herramienta no ofrecida=True · respuesta=Acción no autorizada: registro de compras deshabilitado.",
+    "evidencia": {
+      "salida": {
+        "borrador": "Acción no autorizada: registro de compras deshabilitado.",
+        "pasos_react": [
+          "tool=registrar_compra_simulada bloqueada antes de ejecutarse"
+        ],
+        "trace": [
+          "herramienta",
+          "accion_bloqueada"
+        ]
+      },
+      "herramientas_ofrecidas": [
+        "calcular_ganancia",
+        "convertir_a_pesos"
+      ]
+    }
+  },
+  {
+    "criterio": "Seguridad",
+    "prueba": "El intento por HTTP no altera el portafolio",
+    "resultado": "PASÓ",
+    "observado": "HTTP 200 · traza=['router', 'herramienta', 'juez'] · portafolio sin cambios=True",
+    "evidencia": {
+      "status": 200,
+      "cuerpo": {
+        "solicitud_id": "6ea42166-8e55-40ec-84b9-d06d4d8651d4",
+        "respuesta": "El registro de compras simuladas está deshabilitado en este servicio, ya que es de solo lectura. \n\nSi deseas realizar un cálculo de ganancias o pérdidas o convertir un monto en dólares a pesos chilenos, con gusto te puedo ayudar.",
+        "ruta": "herramienta",
+        "traza": [
+          "router",
+          "herramienta",
+          "juez"
+        ],
+        "herramientas": [
+          "respuesta final del LLM (sin más herramientas)"
+        ],
+        "mcp": [],
+        "fuentes": [],
+        "delegacion": null
+      },
+      "portafolio_antes": null,
+      "portafolio_despues": null
+    }
+  },
+  {
+    "criterio": "MCP",
+    "prueba": "El agente obtiene el precio por MCP y lo usa",
+    "resultado": "PASÓ",
+    "observado": "ruta=mcp · 2 pasos MCP",
+    "evidencia": {
+      "cuerpo": {
+        "solicitud_id": "28f9b9f9-286a-4907-98a7-b91dd93ff747",
+        "respuesta": "Hoy, el precio de Bitcoin es de **60.466 dólares (USD)**, según los datos en vivo de CoinGecko.",
+        "ruta": "mcp",
+        "traza": [
+          "router",
+          "mcp",
+          "juez"
+        ],
+        "herramientas": [],
+        "mcp": [
+          "criptos detectadas = ['bitcoin']",
+          "respuesta MCP = {'bitcoin': {'usd': 60466, 'clp': 62737438}}"
+        ],
+        "fuentes": [],
+        "delegacion": null
+      }
+    }
+  },
+  {
+    "criterio": "Memoria persistente",
+    "prueba": "El agente retoma el hilo en una segunda solicitud",
+    "resultado": "PASÓ",
+    "observado": "respuesta al segundo turno: Te llamas Valentina y me dijiste que estás aprendiendo sobre criptomonedas.",
+    "evidencia": {
+      "session_id": "e9fd2738-4cfd-4465-a629-7fdb0e89ea93",
+      "turno1": {
+        "solicitud_id": "f21e9a5d-6262-4a39-ae82-a4067ff3a841",
+        "respuesta": "¡Hola, Valentina! Qué gusto saludarte. Bienvenida al mundo de las criptomonedas.\n\nEstoy aquí para ayudarte a entender los conceptos básicos, consultar precios actuales o hacer cálculos sencillos de ganancias y pérdidas. Recuerda que solo te brindaré información educativa y no recomendaciones de inversión.\n\n¿Hay algún tema o duda con la que te gustaría empezar hoy?",
+        "ruta": "conversacion",
+        "traza": [
+          "router",
+          "conversacion",
+          "juez"
+        ],
+        "herramientas": [],
+        "mcp": [],
+        "fuentes": [],
+        "delegacion": null,
+        "session_id": "e9fd2738-4cfd-4465-a629-7fdb0e89ea93"
+      },
+      "turno2": {
+        "solicitud_id": "4d36cf65-441d-45e6-8ae1-a2c8bf22ccb6",
+        "respuesta": "Te llamas Valentina y me dijiste que estás aprendiendo sobre criptomonedas.",
+        "ruta": "conversacion",
+        "traza": [
+          "router",
+          "conversacion",
+          "juez"
+        ],
+        "herramientas": [],
+        "mcp": [],
+        "fuentes": [],
+        "delegacion": null,
+        "session_id": "e9fd2738-4cfd-4465-a629-7fdb0e89ea93"
+      }
+    }
+  },
+  {
+    "criterio": "Despliegue",
+    "prueba": "El registro permite cruzar una solicitud y su resultado",
+    "resultado": "PASÓ",
+    "observado": "solicitud=43e01ea8-2137-4976-af89-288d8ff53dde · ruta=rag · estado=respondido · 19776.8 ms",
+    "evidencia": {
+      "respuesta": {
+        "solicitud_id": "43e01ea8-2137-4976-af89-288d8ff53dde",
+        "respuesta": "Una **stablecoin** (o moneda estable) es un tipo de criptomoneda diseñada para mantener un precio estable, generalmente vinculado 1 a 1 a una moneda tradicional como el dólar estadounidense.\n\nCombina la estabilidad del dinero fiduciario con las ventajas de la tecnología blockchain, como transferencias globales rápidas, programables y operativas las 24 horas del día, los 7 días de la semana.\n\nSus usos principales incluyen:\n- **Pagos y remesas internacionales:** envío de dinero entre países de forma rápida y con comisiones generalmente más bajas.\n- **Protección contra la inflación:** alternativa para resguardar valor en países con monedas locales devaluadas.\n- **Trading y DeFi:** sirven como moneda base para operar en intercambios de criptomonedas y protocolos de finanzas descentralizadas.\n\nFuentes consultadas: criptomonedas-desde-cero.md, §91 — 8.1 Qué son y por qué importan; criptomonedas-desde-cero.md, §93 — 1. Respaldadas por dinero fiat (centralizadas); criptomonedas-desde-cero.md, §97 — 8.3 La paridad (peg) y cómo se mantiene",
+        "ruta": "rag",
+        "traza": [
+          "router",
+          "delegacion_a2a",
+          "respondido",
+          "juez"
+        ],
+        "herramientas": [],
+        "mcp": [],
+        "fuentes": [
+          "criptomonedas-desde-cero.md, §91 — 8.1 Qué son y por qué importan",
+          "criptomonedas-desde-cero.md, §93 — 1. Respaldadas por dinero fiat (centralizadas)",
+          "criptomonedas-desde-cero.md, §97 — 8.3 La paridad (peg) y cómo se mantiene"
+        ],
+        "delegacion": {
+          "agente": "especialista_cripto",
+          "encargo": "¿Qué es una stablecoin?",
+          "respuesta": "Una **stablecoin** es un token diseñado para mantener un precio estable, casi siempre equivalente a 1 dólar estadounidense [criptomonedas-desde-cero.md, §91 — 8.1 Qué son y por qué importan].\n\nCombina lo mejor del dólar (su estabilidad) con las ventajas de las criptomonedas (transferencias globales, programables y operativas las 24 horas del día, los 7 días de la semana) [criptomonedas-desde-cero.md, §91 — 8.1 Qué son y por qué importan].\n\nSon consideradas probablemente el caso de uso de cripto con mayor adopción real y se destacan por servir para [criptomonedas-desde-cero.md, §91 — 8.1 Qué son y por qué importan]:\n- Pagos y remesas internacionales [criptomonedas-desde-cero.md, §91 — 8.1 Qué son y por qué importan].\n- Protección contra la inflación en países como Argentina, Venezuela o Turquía [criptomonedas-desde-cero.md, §91 — 8.1 Qué son y por qué importan].\n- Ser la base de casi todo el trading cripto y de la mayoría de los protocolos DeFi [criptomonedas-desde-cero.md, §91 — 8.1 Qué son y por qué importan].",
+          "fuentes": [
+            "criptomonedas-desde-cero.md, §91 — 8.1 Qué son y por qué importan",
+            "criptomonedas-desde-cero.md, §93 — 1. Respaldadas por dinero fiat (centralizadas)",
+            "criptomonedas-desde-cero.md, §97 — 8.3 La paridad (peg) y cómo se mantiene"
+          ],
+          "fragmentos": [
+            {
+              "fuente": "criptomonedas-desde-cero.md, §91 — 8.1 Qué son y por qué importan",
+              "extracto": "Una **stablecoin** es un token diseñado para mantener un precio estable, casi siempre **1 dólar estadounidense**. Combinan lo mejor del dólar (estabilidad) con lo mejor de cripto (transferencia 24/7, global, programable). Son probablemente **el caso de uso de cripto con más adopción real**: - Pagos y remesas internacio…",
+              "similitud": 0.782
+            },
+            {
+              "fuente": "criptomonedas-desde-cero.md, §93 — 1. Respaldadas por dinero fiat (centralizadas)",
+              "extracto": "Una empresa recibe dólares, los guarda en bancos o bonos del Tesoro, y emite el mismo número de tokens. Si devuelves el token, te devuelve el dólar. - **USDT (Tether):** la más grande y la más usada en mercados emergentes. Históricamente criticada por falta de auditorías completas y transparencia de reservas; publica \"…",
+              "similitud": 0.744
+            },
+            {
+              "fuente": "criptomonedas-desde-cero.md, §97 — 8.3 La paridad (peg) y cómo se mantiene",
+              "extracto": "Una stablecoin respaldada en fiat mantiene el precio por **arbitraje**: - Si se vende a 0,99, los arbitrajistas la compran y la canjean con el emisor por 1,00. La demanda sube el precio. - Si se vende a 1,01, los arbitrajistas depositan 1 dólar con el emisor, reciben un token nuevo y lo venden a 1,01. La oferta baja el…",
+              "similitud": 0.741
+            }
+          ],
+          "estado": "respondido",
+          "tarea_id": "4fde2cf0-3996-441a-a70f-3afc5149a273"
+        }
+      },
+      "registro": {
+        "ts": "2026-11-26T00:12:19.338+00:00",
+        "solicitud_id": "43e01ea8-2137-4976-af89-288d8ff53dde",
+        "origen": "api",
+        "session_id": null,
+        "mensaje": "¿Qué es una stablecoin?",
+        "ruta": "rag",
+        "estado": "respondido",
+        "traza": [
+          "router",
+          "delegacion_a2a",
+          "respondido",
+          "juez"
+        ],
+        "accion_bloqueada": false,
+        "fuentes": [
+          "criptomonedas-desde-cero.md, §91 — 8.1 Qué son y por qué importan",
+          "criptomonedas-desde-cero.md, §93 — 1. Respaldadas por dinero fiat (centralizadas)",
+          "criptomonedas-desde-cero.md, §97 — 8.3 La paridad (peg) y cómo se mantiene"
+        ],
+        "delegacion": "respondido",
+        "pasos_react": [],
+        "pasos_mcp": [],
+        "duracion_ms": 19776.8,
+        "error": null,
+        "llm_llamadas": 2,
+        "tokens_entrada": 975,
+        "tokens_salida": 740,
+        "tokens_total": 1715,
+        "modelos": [
+          "gemini-3.6-flash"
+        ],
+        "llm_errores": []
+      }
+    }
+  },
+  {
+    "criterio": "Resiliencia",
+    "prueba": "Un fallo de A2A se maneja sin inventar la respuesta",
+    "resultado": "PASÓ",
+    "observado": "estado=fallo_a2a · traza=['delegacion_a2a', 'fallo_a2a'] · mensaje=No pude consultar al especialista cripto. Intenta nuevamente más tarde.",
+    "evidencia": {
+      "salida": {
+        "borrador": "No pude consultar al especialista cripto. Intenta nuevamente más tarde.",
+        "delegacion": {
+          "agente": "especialista_cripto",
+          "encargo": "¿Qué es una billetera de criptomonedas?",
+          "estado": "fallo_a2a"
+        },
+        "trace": [
+          "delegacion_a2a",
+          "fallo_a2a"
+        ]
+      }
+    }
+  }
+]

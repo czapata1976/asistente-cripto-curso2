@@ -91,9 +91,9 @@ $resultados = [System.Collections.Generic.List[object]]::new()
 # --- 1. Unitarias ----------------------------------------------------------
 $codigo = Invoke-Suite 'Pruebas unitarias' @('-m', 'unittest', 'discover', '-s', 'tests')
 $resultados.Add([pscustomobject]@{
-    Suite = 'Unitarias'; Codigo = $codigo
-    Estado = if ($codigo -eq 0) { 'OK' } else { 'FALLO' }
-})
+        Suite = 'Unitarias'; Codigo = $codigo
+        Estado = if ($codigo -eq 0) { 'OK' } else { 'FALLO' }
+    })
 
 if ($SoloUnitarias) {
     Write-Host ''
@@ -110,23 +110,23 @@ if (-not $hayAgente) {
 }
 $codigo = Invoke-Suite 'Casos de evaluacion' $argsEval
 $resultados.Add([pscustomobject]@{
-    Suite = 'Evaluacion'; Codigo = $codigo
-    Estado = if ($codigo -eq 0) { 'OK' } else { 'FALLO' }
-})
+        Suite = 'Evaluacion'; Codigo = $codigo
+        Estado = if ($codigo -eq 0) { 'OK' } else { 'FALLO' }
+    })
 
 # --- 3. Evidencias ---------------------------------------------------------
 $codigo = Invoke-Suite 'Pruebas de evidencias' @('evidencias/pruebas_base.py')
 $resultados.Add([pscustomobject]@{
-    Suite = 'Evidencias'; Codigo = $codigo
-    Estado = if ($codigo -eq 0) { 'OK' } else { 'FALLO' }
-})
+        Suite = 'Evidencias'; Codigo = $codigo
+        Estado = if ($codigo -eq 0) { 'OK' } else { 'FALLO' }
+    })
 
 # --- 4. Métricas -----------------------------------------------------------
 $codigo = Invoke-Suite 'Metricas del registro' @('scripts/metricas.py')
 $resultados.Add([pscustomobject]@{
-    Suite = 'Metricas'; Codigo = $codigo
-    Estado = if ($codigo -eq 0) { 'OK' } else { 'FALLO' }
-})
+        Suite = 'Metricas'; Codigo = $codigo
+        Estado = if ($codigo -eq 0) { 'OK' } else { 'FALLO' }
+    })
 
 # --- Resumen ---------------------------------------------------------------
 Write-Host ''

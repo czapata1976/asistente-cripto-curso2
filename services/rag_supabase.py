@@ -1,30 +1,17 @@
-"""Recuperación semántica de la guía cripto en Supabase."""
-import json
-from functools import lru_cache
+"""Recuperación semántica de la guía cripto en Postgres + pgvector.
 
+Backend usado en el despliegue. Para desarrollo local existe `rag_local`, que
+guarda los mismos vectores en SQLite y no necesita servidor de base de datos.
+El módulo `services.rag` elige uno u otro según `RAG_BACKEND`.
+"""
 import psycopg
-from google import genai
-from google.genai import types
 from psycopg.rows import dict_row
 
 from config import settings
+from services.embeddings import embeddings, a_json
 
 
-@lru_cache(maxsize=1)
-def cliente_embeddings():
-    return genai.Client(api_key=settings.google_api_key, http_options={"timeout": 20000})
-
-
-def embeddings(textos: list[str], tarea: str) -> list[str]:
-    respuesta = cliente_embeddings().models.embed_content(
-        model=settings.embedding_model,
-        contents=textos,
-        config=types.EmbedContentConfig(task_type=tarea, output_dimensionality=3072),
-    )
-    vectores = [vector.values for vector in respuesta.embeddings or []]
-    if len(vectores) != len(textos) or any(len(v or []) != 3072 for v in vectores):
-        raise ValueError("Gemini devolvió embeddings incompletos")
-    return [json.dumps(vector, allow_nan=False, separators=(",", ":")) for vector in vectores]
+__all__ = ["buscar", "formatear", "conectar", "embeddings", "guardar"]
 
 
 def conectar():
@@ -36,14 +23,18 @@ def conectar():
 
 
 def buscar(pregunta: str, k: int = 3) -> list[dict]:
-    (vector,) = embeddings([pregunta], "RETRIEVAL_QUERY")
+    (consulta,) = embeddings([pregunta], "RETRIEVAL_QUERY")
+    vector = a_json(consulta)
     with conectar() as db, db.cursor(row_factory=dict_row) as cursor:
         cursor.execute("SET LOCAL statement_timeout = '6s'")
         cursor.execute("""
-            SELECT CASE WHEN pagina IS NOT NULL
-                       THEN CONCAT(fuente, ', p. ', pagina)
-                       ELSE CONCAT(fuente, ' (fragmento ', posicion + 1, ')')
-                   END AS fuente, texto,
+            SELECT COALESCE(
+                       ubicacion,
+                       CASE WHEN pagina IS NOT NULL
+                            THEN CONCAT(fuente, ', p. ', pagina)
+                            ELSE CONCAT(fuente, ' (fragmento ', posicion + 1, ')')
+                       END
+                   ) AS fuente, texto,
                    1 - (embedding OPERATOR(extensions.<=>) %s::extensions.vector) AS parecido
             FROM cripto.fragmentos
             WHERE modelo_embedding = %s
@@ -51,6 +42,27 @@ def buscar(pregunta: str, k: int = 3) -> list[dict]:
             LIMIT %s
         """, (vector, settings.embedding_model, k))
         return cursor.fetchall()
+
+
+def guardar(fuente: str, registros: list[tuple[str, int, str, str | None, str]]) -> int:
+    """Reemplaza los fragmentos de una fuente de forma atómica.
+
+    `registros` viene como (ubicacion, posicion, texto, modelo, vector_json),
+    la misma forma que usa el backend SQLite. El bloqueo consultivo evita que
+    dos cargas simultáneas se pisen a mitad de camino.
+    """
+    if not registros:
+        return 0
+    filas = [(fuente, *registro) for registro in registros]
+    with conectar() as db, db.cursor() as cursor:
+        cursor.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (fuente,))
+        cursor.execute("DELETE FROM cripto.fragmentos WHERE fuente = %s", (fuente,))
+        cursor.executemany("""
+            INSERT INTO cripto.fragmentos
+                (fuente, ubicacion, posicion, texto, modelo_embedding, embedding)
+            VALUES (%s, %s, %s, %s, %s, %s::extensions.vector)
+        """, filas)
+        return len(registros)
 
 
 def formatear(fragmentos: list[dict]) -> str:

@@ -1,0 +1,83 @@
+{
+    "name": "A2A · Plan de compra periódica (DCA)",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "a2a-plan",
+                "responseMode": "responseNode",
+                "options": {}
+            },
+            "id": "webhook-a2a-plan",
+            "name": "Webhook A2A",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [
+                -220,
+                0
+            ],
+            "webhookId": "a2a-plan"
+        },
+        {
+            "parameters": {
+                "jsCode": "// Agente especialista en n8n. Habla A2A (JSON-RPC 2.0) igual que el\n// especialista LangGraph: recibe un `message/send` y devuelve un artefacto.\nconst entrada = $input.first().json;\nconst body = entrada.body ?? entrada;\nconst id = body?.id ?? null;\n\nconst texto = (body?.params?.message?.parts ?? [])\n  .filter((parte) => parte.kind === 'text')\n  .map((parte) => parte.text)\n  .join('\\n');\n\n// El agente principal manda el encargo en lenguaje natural y, aparte, los\n// parámetros ya resueltos por su LLM. n8n no necesita modelo propio: calcula.\nconst bloque = texto.match(/\\{[\\s\\S]*\\}/);\nif (!bloque) {\n  return [{ json: { jsonrpc: '2.0', id, error: { code: -32602, message: 'Faltan parámetros del plan' } } }];\n}\n\nlet p;\ntry {\n  p = JSON.parse(bloque[0]);\n} catch (e) {\n  return [{ json: { jsonrpc: '2.0', id, error: { code: -32602, message: 'Parámetros inválidos' } } }];\n}\n\nconst monto = Number(p.monto_usd);\nconst semanas = Number(p.semanas);\nconst valido = Number.isFinite(monto) && monto > 0 && monto <= 1000000\n  && Number.isInteger(semanas) && semanas >= 1 && semanas <= 104;\nif (!valido) {\n  return [{ json: { jsonrpc: '2.0', id, error: { code: -32602, message: 'monto_usd o semanas fuera de rango' } } }];\n}\n\nconst plan = [];\nlet acumulado = 0;\nfor (let i = 1; i <= semanas; i++) {\n  acumulado = Math.round((acumulado + monto) * 100) / 100;\n  plan.push({ numero: i, monto_usd: monto, acumulado_usd: acumulado });\n}\n\nconst artefacto = {\n  tipo: 'plan_dca',\n  cripto: String(p.cripto ?? 'bitcoin').toLowerCase(),\n  monto_usd: monto,\n  frecuencia: String(p.frecuencia ?? 'semanal'),\n  semanas,\n  compras: semanas,\n  total_usd: acumulado,\n  plan,\n  nota: 'Plan de práctica. No es asesoría financiera ni una orden de compra.',\n};\n\nreturn [{ json: {\n  jsonrpc: '2.0',\n  id,\n  result: {\n    kind: 'task',\n    id: 'n8n-' + (body?.params?.message?.messageId ?? Date.now()),\n    status: { state: 'completed' },\n    artifacts: [\n      { artifactId: 'plan-dca', parts: [{ kind: 'text', text: JSON.stringify(artefacto) }] },\n    ],\n  },\n} }];"
+            },
+            "id": "calcular-plan",
+            "name": "Calcular plan",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                20,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "respondWith": "firstIncomingItem",
+                "options": {}
+            },
+            "id": "responder",
+            "name": "Responder",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1.1,
+            "position": [
+                260,
+                0
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook A2A": {
+            "main": [
+                [
+                    {
+                        "node": "Calcular plan",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Calcular plan": {
+            "main": [
+                [
+                    {
+                        "node": "Responder",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "active": true,
+    "settings": {
+        "executionOrder": "v1"
+    },
+    "id": "a2a-plan-dca",
+    "versionId": "1",
+    "meta": {
+        "description": "Agente especialista en n8n que participa en un intercambio A2A y arma un plan de compra periódica de práctica."
+    },
+    "tags": []
+}

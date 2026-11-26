@@ -5,9 +5,21 @@ compilar e importar el grafo sin tener credenciales cargadas. Patrón tomado
 de seguridad2.0.
 """
 
+import warnings
+
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 from config import require_llm
+
+
+# Los modelos con muestreo fijo (como gemini-3.6-flash) ignoran `temperature` y
+# avisan en cada llamada. El aviso es correcto pero inunda la traza justo cuando
+# se recoge evidencia, así que se silencia esa advertencia concreta y no el resto.
+warnings.filterwarnings(
+    "ignore",
+    message=r".*uses fixed sampling defaults.*temperature will be ignored.*",
+    category=UserWarning,
+)
 
 
 def get_llm(temperature: float = 0) -> ChatGoogleGenerativeAI:

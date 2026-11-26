@@ -23,6 +23,17 @@ load_dotenv(ROOT_DIR / ".env")
 load_dotenv(PROJECT_DIR / ".env")
 
 
+def _ruta(valor: str, por_defecto: Path) -> Path:
+    """Resuelve una ruta del .env contra la carpeta del proyecto.
+
+    Sin esto, un valor relativo como `datos/indice_rag.sqlite3` dependería del
+    directorio desde el que se lanzó el proceso: ejecutar desde otra carpeta
+    crearía una base de datos distinta y vacía.
+    """
+    ruta = Path(valor) if valor else por_defecto
+    return ruta if ruta.is_absolute() else PROJECT_DIR / ruta
+
+
 @dataclass(frozen=True)
 class Settings:
     """Valores de configuración usados por todo el chasis."""
@@ -34,6 +45,23 @@ class Settings:
     supabase_db_url: str = os.getenv("SUPABASE_DB_URL", "")
     embedding_model: str = os.getenv("GEMINI_EMBEDDING_MODEL", "gemini-embedding-001")
 
+    # --- Backend del RAG: "sqlite" (local, sin infraestructura) o "postgres" ---
+    rag_backend: str = os.getenv("RAG_BACKEND", "sqlite").strip().lower()
+    rag_corpus: Path = _ruta(
+        os.getenv("RAG_CORPUS", ""), PROJECT_DIR / "criptomonedas-desde-cero.md"
+    )
+    rag_sqlite_path: Path = _ruta(
+        os.getenv("RAG_SQLITE_PATH", ""), PROJECT_DIR / "datos" / "indice_rag.sqlite3"
+    )
+    # Indexar el corpus al arrancar si el índice local está vacío. Útil en
+    # despliegues sin disco persistente, donde el archivo SQLite no existe.
+    rag_autocarga: bool = os.getenv("RAG_AUTOCARGA", "").strip() == "1"
+
+    # --- Registro de ejecuciones (auditoría y métricas) ---
+    registro_path: Path = _ruta(
+        os.getenv("REGISTRO_PATH", ""), PROJECT_DIR / "datos" / "registros" / "ejecuciones.jsonl"
+    )
+
     # --- MCP (bono, opcional) ---
     mcp_url: str = os.getenv("MCP_URL", "")
 
@@ -42,12 +70,17 @@ class Settings:
     especialista_token: str = os.getenv("ESPECIALISTA_API_TOKEN", "")
     api_token: str = os.getenv("CRIPTO_API_TOKEN", "")
 
+    # --- Especialista A2A en n8n (flujo adicional) ---
+    n8n_webhook_url: str = os.getenv("N8N_WEBHOOK_URL", "")
+
     web_user_password: str = os.getenv("WEB_USER_PASSWORD", "")
     web_admin_password: str = os.getenv("WEB_ADMIN_PASSWORD", "")
     web_session_secret: str = os.getenv("WEB_SESSION_SECRET", "")
     web_secure_cookie: bool = os.getenv("WEB_SECURE_COOKIE", "") == "1"
     web_history_postgres: bool = os.getenv("WEB_HISTORY_POSTGRES") == "1"
-    web_db: Path = Path(os.getenv("WEB_HISTORY_DB", str(PROJECT_DIR / "datos" / "historial_web.sqlite3")))
+    web_db: Path = _ruta(
+        os.getenv("WEB_HISTORY_DB", ""), PROJECT_DIR / "datos" / "historial_web.sqlite3"
+    )
 
     # --- Trazas / debug ---
     debug: bool = os.getenv("DEBUG", "") == "1"

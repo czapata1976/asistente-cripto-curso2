@@ -1,0 +1,60 @@
+# Blueprint de despliegue en Render (https://render.com).
+#
+# Con este archivo, Render crea el servicio desde el repositorio de GitHub sin
+# configuración manual: detecta el Dockerfile, expone el puerto y pide los
+# secretos al conectar el repo.
+#
+# Para usarlo: Render → New → Blueprint → elige este repositorio.
+#
+# Notas:
+# - RAG_AUTOCARGA=1 indexa el corpus al primer arranque. El plan gratuito no
+#   tiene disco persistente, así que tras un reinicio en frío se vuelve a
+#   indexar (≈40 s y unas 33 llamadas a Gemini). Si eso molesta, sube el plan y
+#   monta un disco en /app/datos.
+# - El especialista LangGraph y el workflow de n8n son servicios aparte: hay que
+#   levantarlos donde el servicio pueda alcanzarlos y poner sus URLs abajo.
+
+services:
+  - type: web
+    name: asistente-cripto
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /salud
+    autoDeploy: true
+    envVars:
+      # --- Obligatorio: se pide al crear el servicio, no va en el repo ---
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: CRIPTO_API_TOKEN
+        sync: false
+      - key: WEB_USER_PASSWORD
+        sync: false
+      - key: WEB_ADMIN_PASSWORD
+        sync: false
+      - key: WEB_SESSION_SECRET
+        sync: false
+
+      # --- Especialistas A2A (vacío deshabilita la rama correspondiente) ---
+      - key: ESPECIALISTA_A2A_URL
+        sync: false
+      - key: N8N_WEBHOOK_URL
+        sync: false
+
+      # --- Valores fijos del proyecto ---
+      - key: GOOGLE_MODEL
+        value: gemini-3.6-flash
+      - key: GEMINI_EMBEDDING_MODEL
+        value: gemini-embedding-001
+      - key: RAG_BACKEND
+        value: sqlite
+      - key: RAG_CORPUS
+        value: criptomonedas-desde-cero.md
+      - key: RAG_AUTOCARGA
+        value: "1"
+      - key: MCP_URL
+        value: https://mcp.api.coingecko.com/mcp
+      - key: WEB_SECURE_COOKIE
+        value: "1"
+      - key: WEB_HISTORY_POSTGRES
+        value: "0"

@@ -24,6 +24,7 @@ from nodes.herramienta import herramienta
 from nodes.juez import crear_juez
 from nodes.mcp import mcp
 from nodes.delegacion import delegar_concepto
+from nodes.plan import plan_dca
 from nodes.router import router, ruta_desde_estado
 from state import AgentState
 
@@ -41,6 +42,7 @@ def build_graph(incluir_juez: bool = True):
     builder.add_node("herramienta", herramienta)
     builder.add_node("delegacion_a2a", delegar_concepto)
     builder.add_node("mcp", mcp)
+    builder.add_node("plan", plan_dca)
     builder.add_node("juez", crear_juez(incluir_juez_llm=incluir_juez))
 
     builder.add_edge(START, "router")
@@ -54,6 +56,7 @@ def build_graph(incluir_juez: bool = True):
             "herramienta": "herramienta",
             "rag": "delegacion_a2a",
             "mcp": "mcp",
+            "plan": "plan",
         },
     )
 
@@ -62,6 +65,7 @@ def build_graph(incluir_juez: bool = True):
     builder.add_edge("herramienta", "juez")
     builder.add_edge("delegacion_a2a", "juez")
     builder.add_edge("mcp", "juez")
+    builder.add_edge("plan", "juez")
     builder.add_edge("juez", END)
 
     return builder.compile()

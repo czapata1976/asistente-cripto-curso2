@@ -17,6 +17,7 @@ Rama = Literal[
     "herramienta",    # ReAct: calcular ganancia, convertir, registrar compra
     "rag",            # conceptos de la guía (qué es una wallet, volatilidad...)
     "mcp",            # precio en vivo desde CoinGecko
+    "plan",           # plan de compra periódica resuelto por el especialista n8n
 ]
 
 
@@ -33,6 +34,7 @@ class AgentState(TypedDict, total=False):
 
     permitir_escritura: bool
     delegacion: dict
+    delegacion_n8n: dict
 
     # --- Resultados parciales de cada rama ---
     pasos_react: list[str]   # traza del ciclo ReAct (tool -> observación)

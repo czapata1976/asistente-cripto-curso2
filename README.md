@@ -106,14 +106,18 @@ que pase las pruebas construye una imagen con Cloud Build y la publica en Artifa
 `cripto-especialista` (privado con IAM) y `agente-cripto-uai` (HTTPS con login de la app).
 
 Cloud Build, los buckets de fuentes y logs de la compilación, Artifact Registry
-y los dos servicios usan `GCP_REGION`. En el proyecto actual, configura
-`GCP_REGION=southamerica-west1`. Para compilar manualmente sin usar el endpoint
-global, ejecuta desde la raíz del repositorio:
+y los dos servicios usan `GCP_REGION=southamerica-west1`. El proyecto
+`agente-cripto-uai` tiene ID `animated-spider-434900-a4` y número
+`201930158969`. La app está disponible en el
+[chat de Cloud Run](https://agente-cripto-uai-201930158969.southamerica-west1.run.app/app).
+La primera vez en la nueva URL es necesario iniciar sesión de nuevo.
+
+Para compilar manualmente desde la raíz del repositorio:
 
 ```powershell
 $commit = git rev-parse --short HEAD
-$image = "southamerica-west1-docker.pkg.dev/agente-bryhan-uai/cloud-run-source-deploy/asistente-cripto:$commit"
-gcloud builds submit --project=agente-bryhan-uai --region=southamerica-west1 --default-buckets-behavior=regional-user-owned-bucket "--tag=$image"
+$image = "southamerica-west1-docker.pkg.dev/animated-spider-434900-a4/cloud-run-source-deploy/asistente-cripto:$commit"
+gcloud builds submit --project=animated-spider-434900-a4 --region=southamerica-west1 --gcs-source-staging-dir=gs://animated-spider-434900-a4_southamerica-west1_cloudbuild/source --gcs-log-dir=gs://201930158969-southamerica-west1-cloudbuild-logs "--tag=$image"
 ```
 
 
@@ -130,7 +134,8 @@ Configuración inicial:
    `GCP_ARTIFACT_REPOSITORY`, `GCP_WIF_AUDIENCE`, `GCP_WIF_PROVIDER`,
    `GCP_DEPLOY_SERVICE_ACCOUNT`, `GCP_CHAT_SERVICE_ACCOUNT` y
    `GCP_A2A_SERVICE_ACCOUNT`. El proveedor usa su nombre de recurso completo
-   con el número de proyecto y las cuentas usan su correo de servicio.
+   con el número del proyecto de Cripto. Usa las cuentas de servicio de
+   `animated-spider-434900-a4` y el repositorio `cloud-run-source-deploy`.
 4. Crea los secretos `cripto-gemini`, `cripto-supabase`, `cripto-api-token`,
    `cripto-web-user`, `cripto-web-admin` y `cripto-web-session`.
    Otorga acceso por secreto a la cuenta de cada servicio según el pipeline.

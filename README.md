@@ -99,7 +99,19 @@ Consultar-Cripto 'Registra una compra simulada de 1 BTC a 40000 USD.'
 | Fallo | Detén el especialista y repite la pregunta educativa. La traza muestra `fallo_a2a` y el principal indica que no pudo consultarlo. |
 | Registro | Busca el `solicitud_id` de la respuesta en la terminal del principal para ver ruta, estado y traza. |
 
-## Despliegue desde GitLab
+## Despliegue por activador de Google Cloud
+
+Vincula el repositorio en Cloud Build, segunda generación, en
+`southamerica-west1`. Crea un activador de push para `^main$` con el archivo
+`cloudbuild.yaml`. La cuenta del activador necesita escribir la imagen en el
+repositorio Docker, escribir logs en el bucket regional, actualizar ambos
+servicios y actuar como sus cuentas de ejecución.
+
+## Despliegue alternativo desde GitLab CI
+
+El despliegue de GitLab CI se activa solo al definir
+`DEPLOY_FROM_GITLAB=1`. Usa un solo mecanismo de despliegue para evitar
+publicaciones duplicadas.
 
 `.gitlab-ci.yml` ejecuta pruebas con cada push. Un push a la rama por defecto
 que pase las pruebas construye una imagen con Cloud Build y la publica en Artifact Registry. Luego despliega

@@ -327,6 +327,31 @@ Secret Manager y guarda las conversaciones en Supabase.
 con `DEPLOY_FROM_GITLAB=1` y Workload Identity Federation. Para usar el
 activador de Cloud Build, deja esa variable sin definir.
 
+### Comprobar el servicio desplegado
+
+Sin credenciales ya se puede verificar que está vivo y que protege el acceso:
+
+```powershell
+$base = 'https://agente-cripto-uai-201930158969.southamerica-west1.run.app'
+
+# 1. Estado del servicio (público, no expone configuración sensible).
+Invoke-RestMethod "$base/salud"
+# -> estado=operativo, modelo=gemini-3.6-flash, rag_backend=postgres
+
+# 2. Sin token, la API rechaza la solicitud.
+Invoke-WebRequest -Method Post "$base/consulta" -ContentType 'application/json' `
+  -Body '{"mensaje":"hola"}'
+# -> 401 Acceso no autorizado
+
+# 3. El endpoint de auditoría también exige token.
+Invoke-WebRequest "$base/registro/cualquier-id"
+# -> 401
+```
+
+Con el token de prueba, la misma llamada devuelve `solicitud_id`; consultar
+`GET /registro/{solicitud_id}` con ese mismo token devuelve la línea del
+registro, y así se cruza la respuesta con el flujo que se ejecutó.
+
 **Credenciales de prueba:** se entregan por correo a los profesores. No están en
 este repositorio, ni en la documentación, ni en las evidencias.
 

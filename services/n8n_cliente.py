@@ -11,14 +11,37 @@ periódica de práctica — con un especialista distinto, ejecutado en n8n.
 """
 
 import json
+from urllib.parse import urlparse
 from uuid import uuid4
 
 import httpx
+from google.auth.transport.requests import Request
+from google.oauth2 import id_token
 
 from config import settings
 
 
 NOMBRE_ESPECIALISTA_N8N = "n8n_plan_dca"
+
+
+class N8NNoConfigurado(RuntimeError):
+    """El despliegue no tiene N8N_WEBHOOK_URL.
+
+    Se separa de un fallo de red porque el diagnóstico y el mensaje al usuario
+    son distintos: aquí no hay nada que reintentar, falta configuración.
+    En Cloud Run esto ocurre si el servicio no recibió la variable: el
+    contenedor no lleva `.env` (está en `.dockerignore`).
+    """
+
+
+class N8NInalcanzable(RuntimeError):
+    """La URL está configurada pero n8n no respondió.
+
+    El caso típico es apuntar a `127.0.0.1`: dentro de Cloud Run ese host es el
+    propio contenedor del agente, no la máquina del desarrollador. n8n debe
+    estar en una URL que el servicio alcance, normalmente otro servicio de
+    Cloud Run.
+    """
 
 
 def _extraer_texto(tarea: dict) -> str:
@@ -38,26 +61,48 @@ def pedir_plan(encargo: str, parametros: dict) -> tuple[str, dict]:
         parametros: parámetros ya resueltos por el LLM del agente principal
                     (monto, frecuencia, semanas, cripto). n8n no necesita un
                     modelo propio: solo calcula y da formato.
+
+    Raises:
+        N8NNoConfigurado: falta `N8N_WEBHOOK_URL` en este despliegue.
+        N8NInalcanzable: hay URL pero la conexión falló o n8n devolvió error.
+        ValueError: n8n respondió algo que no cumple el contrato A2A.
     """
     url = settings.n8n_webhook_url.strip()
     if not url:
-        raise RuntimeError("Configura N8N_WEBHOOK_URL para usar el especialista n8n")
+        raise N8NNoConfigurado(
+            "N8N_WEBHOOK_URL no está definida: el flujo de plan está deshabilitado."
+        )
 
     message_id = str(uuid4())
     texto = f"{encargo}\nParámetros: {json.dumps(parametros, ensure_ascii=False)}"
 
-    with httpx.Client(timeout=httpx.Timeout(30, connect=5)) as cliente:
-        respuesta = cliente.post(url, json={
-            "jsonrpc": "2.0",
-            "id": message_id,
-            "method": "message/send",
-            "params": {"message": {
-                "role": "user",
-                "messageId": message_id,
-                "parts": [{"kind": "text", "text": texto}],
-            }},
-        })
-        respuesta.raise_for_status()
+    cabeceras: dict[str, str] = {}
+    if settings.n8n_cloud_run_iam:
+        # n8n desplegado como servicio privado de Cloud Run: se pide un ID
+        # token para la audiencia del servicio. Es el mismo mecanismo que usa
+        # `services/a2a_cliente.py` con el especialista LangGraph.
+        base = f"{urlparse(url).scheme}://{urlparse(url).netloc}"
+        cabeceras["Authorization"] = f"Bearer {id_token.fetch_id_token(Request(), base)}"
+
+    try:
+        with httpx.Client(timeout=httpx.Timeout(30, connect=5), headers=cabeceras) as cliente:
+            respuesta = cliente.post(url, json={
+                "jsonrpc": "2.0",
+                "id": message_id,
+                "method": "message/send",
+                "params": {"message": {
+                    "role": "user",
+                    "messageId": message_id,
+                    "parts": [{"kind": "text", "text": texto}],
+                }},
+            })
+            respuesta.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        raise N8NInalcanzable(
+            f"n8n respondió HTTP {exc.response.status_code} en {url}"
+        ) from exc
+    except httpx.HTTPError as exc:
+        raise N8NInalcanzable(f"no se pudo conectar a {url}: {type(exc).__name__}") from exc
 
     cuerpo = respuesta.json()
     if cuerpo.get("id") != message_id:

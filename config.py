@@ -72,6 +72,10 @@ class Settings:
 
     # --- Especialista A2A en n8n (flujo adicional) ---
     n8n_webhook_url: str = os.getenv("N8N_WEBHOOK_URL", "")
+    # Mismo patrón que el especialista LangGraph: si n8n corre en Cloud Run
+    # privado, el agente se autentica con un ID token de Google en vez de con
+    # una clave compartida.
+    n8n_cloud_run_iam: bool = os.getenv("N8N_CLOUD_RUN_IAM") == "1"
 
     web_user_password: str = os.getenv("WEB_USER_PASSWORD", "")
     web_admin_password: str = os.getenv("WEB_ADMIN_PASSWORD", "")

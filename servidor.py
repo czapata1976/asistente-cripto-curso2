@@ -301,13 +301,23 @@ async def obtener_registro(request: Request) -> JSONResponse:
 
 
 async def salud(request: Request) -> JSONResponse:
-    """Estado del servicio sin exponer configuración sensible."""
+    """Estado del servicio sin exponer configuración sensible.
+
+    Incluye qué especialistas están configurados. Es el primer sitio donde
+    mirar cuando una rama responde «no disponible» en el despliegue: distingue
+    «falta la variable» de «la URL está pero el servicio no contesta».
+    """
     return JSONResponse({
         "servicio": "asistente-cripto",
         "estado": "operativo",
         "modelo": settings.google_model,
         "rag_backend": settings.rag_backend,
         "token_configurado": bool(settings.api_token),
+        "especialistas": {
+            "langgraph_configurado": bool(settings.especialista_url),
+            "n8n_configurado": bool(settings.n8n_webhook_url.strip()),
+            "n8n_con_iam": settings.n8n_cloud_run_iam,
+        },
     })
 
 

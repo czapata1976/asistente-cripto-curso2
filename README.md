@@ -130,8 +130,8 @@ Tres terminales con el entorno activado:
 python -m uvicorn servidor_especialista:app --host 127.0.0.1 --port 2024
 
 # 2. Especialista n8n (A2A adicional), puerto 5678
-npx --yes n8n import:workflow --input=n8n/a2a-plan-dca.json
-npx n8n start
+npx --yes n8n@2.49.6 import:workflow --input=n8n/a2a-plan-dca.json
+npx --yes n8n@2.49.6 start
 
 # 3. Agente principal, puerto 8000
 python -m uvicorn servidor:app --host 127.0.0.1 --port 8000
@@ -183,6 +183,7 @@ en el repositorio: `.env` está en `.gitignore`.
 | `ESPECIALISTA_API_TOKEN` | Clave opcional para ese especialista. |
 | `ESPECIALISTA_CLOUD_RUN_IAM` | `1` usa identidad IAM entre servicios de Cloud Run. |
 | `N8N_WEBHOOK_URL` | Webhook del workflow A2A de n8n. Vacío lo deshabilita. |
+| `N8N_CLOUD_RUN_IAM` | `1` autentica las llamadas a n8n con ID token de Google (n8n privado en Cloud Run). |
 | `MCP_URL` | Servidor MCP de CoinGecko. |
 | `RAG_BACKEND` | `sqlite` (local) o `postgres` (pgvector). |
 | `RAG_CORPUS` | Documento a indexar. |
@@ -262,7 +263,7 @@ JSON (con las respuestas completas sin recortar).
 | **Memoria persistente** | +0,5 | Dos `POST /consulta` con el mismo `session_id`: el segundo turno recuerda el nombre dado en el primero. También por el chat web. |
 | **Evaluación versionada** | +0,5 | `evals/casos.jsonl` + `python -m evals.ejecutar`. |
 | **Observabilidad** | +0,5 | `python scripts/metricas.py --comparar antes.jsonl despues.jsonl`. Ver 7.4. |
-| **A2A con n8n** | +1,0 | «Quiero comprar 50 USD de bitcoin cada semana durante 12 semanas» → ruta `plan`; el campo `delegacion_n8n` trae `encargo`, `tarea_id`, `estado` y el artefacto calculado en n8n. |
+| **A2A con n8n** | +1,0 | «Quiero comprar 50 USD de bitcoin cada semana durante 12 semanas» → ruta `plan`; el campo `delegacion_n8n` trae `encargo`, `tarea_id`, `estado` y el artefacto calculado en n8n. Para llevarlo a producción, ver [`docs/n8n-produccion.md`](docs/n8n-produccion.md). |
 
 ### 7.4 Comparación antes/después (observabilidad)
 

@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 from llm import get_llm
 from prompts.plan_prompt import PLAN_PROMPT
 from services.mensajes import construir_mensajes
-from services.n8n_cliente import NOMBRE_ESPECIALISTA_N8N, pedir_plan
+from services.n8n_cliente import NOMBRE_ESPECIALISTA_N8N, N8NNoConfigurado, pedir_plan
 from state import AgentState
 
 
@@ -80,6 +80,18 @@ def plan_dca(state: AgentState) -> dict:
 
     try:
         tarea_id, artefacto = pedir_plan(encargo, datos)
+    except N8NNoConfigurado as exc:
+        # No es un fallo transitorio: el despliegue no tiene planificador. El
+        # mensaje lo dice sin prometer un reintento que nunca funcionaría.
+        evidencia.update(estado="no_configurado", error=str(exc))
+        return {
+            "borrador": (
+                "El planificador de aportes no está habilitado en este despliegue. "
+                "Puedo calcular ganancias, explicar conceptos y consultar precios."
+            ),
+            "trace": ["n8n", "n8n_no_configurado"],
+            "delegacion_n8n": evidencia,
+        }
     except Exception as exc:
         evidencia.update(estado="fallo_n8n", error=type(exc).__name__)
         return {

@@ -307,8 +307,25 @@ docker run -p 8080:8080 --env-file .env asistente-cripto
 
 Variables mínimas en el entorno del despliegue: `GOOGLE_API_KEY`,
 `CRIPTO_API_TOKEN`, `ESPECIALISTA_A2A_URL`, `RAG_BACKEND`, `MCP_URL` y las del chat
-web. En Cloud Run, `.gitlab-ci.yml` muestra el despliegue con Secret Manager y
-Workload Identity Federation.
+web.
+
+### Despliegue en Google Cloud Run
+
+El proyecto **agente-cripto-uai** tiene ID `animated-spider-434900-a4` y
+número `201930158969`. Cloud Build, Artifact Registry y los dos servicios
+funcionan en Santiago (`southamerica-west1`). El especialista
+`cripto-especialista` es privado; el servicio `agente-cripto-uai` ofrece
+el [chat web](https://agente-cripto-uai-201930158969.southamerica-west1.run.app/app).
+
+El activador `deploy-agente-cripto-main` escucha pushes a `main` desde la
+conexión GitLab de segunda generación. Usa `cloudbuild.yaml` para ejecutar
+las pruebas, construir y publicar la imagen, y actualizar primero el
+especialista y luego el chat. Cloud Run obtiene las credenciales desde
+Secret Manager y guarda las conversaciones en Supabase.
+
+`.gitlab-ci.yml` ejecuta pruebas. Su despliegue alternativo se habilita
+con `DEPLOY_FROM_GITLAB=1` y Workload Identity Federation. Para usar el
+activador de Cloud Build, deja esa variable sin definir.
 
 **Credenciales de prueba:** se entregan por correo a los profesores. No están en
 este repositorio, ni en la documentación, ni en las evidencias.

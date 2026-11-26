@@ -2,6 +2,7 @@ import json
 import logging
 import re
 import time
+from contextlib import asynccontextmanager
 from secrets import compare_digest
 from uuid import uuid4
 
@@ -13,6 +14,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 
+from cargar_guia import asegurar_indice
 from config import settings
 from main import graph
 from nodes.juez import MENSAJE_SEGURO, crear_juez
@@ -309,6 +311,26 @@ async def salud(request: Request) -> JSONResponse:
     })
 
 
+async def _arranque() -> None:
+    """Prepara el índice del RAG si el despliegue no trae uno (RAG_AUTOCARGA=1).
+
+    Un fallo aquí no debe impedir el arranque: el resto del agente funciona sin
+    recuperación documental, solo que la rama `rag` responderá que la guía no
+    está disponible.
+    """
+    try:
+        await run_in_threadpool(asegurar_indice)
+    except Exception as exc:  # noqa: BLE001 - degradar, no tumbar el servicio
+        logger.warning("No se pudo preparar el índice del RAG: %s", exc)
+
+
+@asynccontextmanager
+async def _ciclo_vida(_app):
+    """Lifespan de la app. Starlette ≥1.0 ya no acepta `on_startup`."""
+    await _arranque()
+    yield
+
+
 app = Starlette(routes=[
     # "/" lo resuelve web_ui (redirige al chat). "/salud" es el chequeo del
     # servicio para el despliegue y para el docente.
@@ -317,5 +339,5 @@ app = Starlette(routes=[
     Route("/rag", consultar_rag, methods=["POST"]),
     Route("/registro/{solicitud_id}", obtener_registro),
     *web_routes,
-])
+], lifespan=_ciclo_vida)
 app.state.ejecutar_consulta = ejecutar_consulta

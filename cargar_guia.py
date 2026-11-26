@@ -136,6 +136,72 @@ def _backend():
     return backend, lambda vector: array("f", vector).tobytes()
 
 
+def indexar(corpus: Path, verboso: bool = True) -> int:
+    """Genera los embeddings del corpus y reemplaza el índice. Devuelve el total.
+
+    Args:
+        corpus: documento a indexar.
+        verboso: imprime el progreso. Se apaga cuando la indexación es
+                 automática al arrancar el servicio.
+    """
+    def avisar(mensaje: str) -> None:
+        if verboso:
+            print(mensaje, flush=True)
+
+    fragmentos = extraer_fragmentos(corpus)
+    if not fragmentos:
+        raise ValueError("El documento no contiene texto aprovechable.")
+    if not settings.google_api_key:
+        raise RuntimeError("Falta GOOGLE_API_KEY: sin ella no se generan vectores.")
+
+    avisar(f"Corpus: {corpus.name}")
+    avisar(f"Fragmentos: {len(fragmentos)} en "
+           f"{len({ubicacion for ubicacion, _ in fragmentos})} secciones")
+
+    backend, serializar = _backend()
+    modelo = settings.embedding_model
+    registros = []
+    for inicio in range(0, len(fragmentos), LOTE):
+        lote = fragmentos[inicio:inicio + LOTE]
+        vectores = generar_lote([texto for _, texto in lote])
+        registros.extend(
+            (ubicacion, inicio + i, texto, modelo, serializar(vector))
+            for i, ((ubicacion, texto), vector) in enumerate(zip(lote, vectores, strict=True))
+        )
+        avisar(f"  Embeddings generados: {len(registros)}/{len(fragmentos)}")
+
+    return backend.guardar(corpus.name, registros)
+
+
+def asegurar_indice() -> int | None:
+    """Indexa el corpus si el backend local está vacío.
+
+    Pensado para el despliegue: el índice SQLite no se versiona, así que un
+    contenedor recién creado arrancaría sin base de conocimiento. Con
+    `RAG_AUTOCARGA=1` el servicio se indexa solo la primera vez y queda
+    operativo sin intervención manual.
+
+    Devuelve cuántos fragmentos se indexaron, o None si no hacía falta.
+    """
+    if settings.rag_backend != "sqlite" or not settings.rag_autocarga:
+        return None
+
+    from services import rag_local
+
+    if rag_local.contar() > 0:
+        return None
+    if not settings.rag_corpus.exists() or not settings.google_api_key:
+        return None
+
+    import logging
+
+    log = logging.getLogger("uvicorn.error")
+    log.info("Índice vacío: indexando %s automáticamente", settings.rag_corpus.name)
+    total = indexar(settings.rag_corpus, verboso=False)
+    log.info("Índice listo: %s fragmentos", total)
+    return total
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("corpus", nargs="?", type=Path, default=settings.rag_corpus,
@@ -149,16 +215,14 @@ def main() -> int:
         return 1
 
     fragmentos = extraer_fragmentos(args.corpus)
-    if not fragmentos:
-        print("El documento no contiene texto aprovechable.", file=sys.stderr)
-        return 1
-
-    secciones = len({ubicacion for ubicacion, _ in fragmentos})
-    palabras = sum(len(texto.split()) for _, texto in fragmentos)
-    print(f"Corpus: {args.corpus.name}")
-    print(f"Fragmentos: {len(fragmentos)} en {secciones} secciones ({palabras:,} palabras)")
-
     if args.revisar:
+        if not fragmentos:
+            print("El documento no contiene texto aprovechable.", file=sys.stderr)
+            return 1
+        secciones = len({ubicacion for ubicacion, _ in fragmentos})
+        palabras = sum(len(texto.split()) for _, texto in fragmentos)
+        print(f"Corpus: {args.corpus.name}")
+        print(f"Fragmentos: {len(fragmentos)} en {secciones} secciones ({palabras:,} palabras)")
         print("Modo revisión: no se llamó a Gemini ni se escribió nada.")
         return 0
 
@@ -167,19 +231,7 @@ def main() -> int:
               file=sys.stderr)
         return 1
 
-    backend, serializar = _backend()
-    modelo = settings.embedding_model
-    registros = []
-    for inicio in range(0, len(fragmentos), LOTE):
-        lote = fragmentos[inicio:inicio + LOTE]
-        vectores = generar_lote([texto for _, texto in lote])
-        registros.extend(
-            (ubicacion, inicio + i, texto, modelo, serializar(vector))
-            for i, ((ubicacion, texto), vector) in enumerate(zip(lote, vectores, strict=True))
-        )
-        print(f"  Embeddings generados: {len(registros)}/{len(fragmentos)}", flush=True)
-
-    guardados = backend.guardar(args.corpus.name, registros)
+    guardados = indexar(args.corpus)
     print(f"Indexados {guardados} fragmentos en el backend '{settings.rag_backend}'.")
     return 0
 

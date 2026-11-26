@@ -53,6 +53,9 @@ class Settings:
     rag_sqlite_path: Path = _ruta(
         os.getenv("RAG_SQLITE_PATH", ""), PROJECT_DIR / "datos" / "indice_rag.sqlite3"
     )
+    # Indexar el corpus al arrancar si el índice local está vacío. Útil en
+    # despliegues sin disco persistente, donde el archivo SQLite no existe.
+    rag_autocarga: bool = os.getenv("RAG_AUTOCARGA", "").strip() == "1"
 
     # --- Registro de ejecuciones (auditoría y métricas) ---
     registro_path: Path = _ruta(

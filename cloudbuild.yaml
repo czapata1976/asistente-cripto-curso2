@@ -20,12 +20,11 @@ steps:
       - |
         image="${_IMAGE}:$COMMIT_SHA"
         for service in cripto-especialista agente-cripto-uai; do
-          gcloud run services update "$$service" --image="$$image"             --project="$PROJECT_ID" --region=southamerica-west1 --quiet
+          gcloud run services update "$$service" --image="$$image" --update-env-vars=RAG_BACKEND=postgres --project="$PROJECT_ID" --region=southamerica-west1 --quiet
         done
 
 substitutions:
   _IMAGE: southamerica-west1-docker.pkg.dev/animated-spider-434900-a4/cloud-run-source-deploy/asistente-cripto
 
-logsBucket: gs://201930158969-southamerica-west1-cloudbuild-logs
 options:
-  logging: GCS_ONLY
+  logging: CLOUD_LOGGING_ONLY
